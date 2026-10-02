@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Odak — pomodoro, notlar, yapılacaklar, zincir</title>
+  <link rel="stylesheet" href="styles/design-tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">İçeriğe geç</a>
+
+  <header class="app-header">
+    <h1 class="app-title">Odak</h1>
+    <nav class="tabs" role="tablist" aria-label="Araçlar">
+      <button class="tab" role="tab" id="tab-pomodoro" aria-controls="panel-pomodoro" aria-selected="true" tabindex="0">Pomodoro</button>
+      <button class="tab" role="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false" tabindex="-1">Notlar</button>
+      <button class="tab" role="tab" id="tab-todos" aria-controls="panel-todos" aria-selected="false" tabindex="-1">Yapılacaklar</button>
+      <button class="tab" role="tab" id="tab-chain" aria-controls="panel-chain" aria-selected="false" tabindex="-1">Zincir</button>
+    </nav>
+    <button id="theme-toggle" class="btn ghost" type="button" aria-pressed="false">Koyu tema</button>
+  </header>
+
+  <p id="save-warning" class="save-warning" role="alert" hidden>Kaydedilemedi — yerel depolama dolu veya kapalı olabilir.</p>
+
+  <main id="main">
+    <!-- ── Pomodoro ─────────────────────────────── -->
+    <section class="panel" id="panel-pomodoro" role="tabpanel" aria-labelledby="tab-pomodoro" tabindex="0">
+      <h2 class="panel-title">Pomodoro</h2>
+      <div class="pomo-stage">
+        <p class="pomo-phase" id="pomo-phase">Odak</p>
+        <p class="pomo-time" id="pomo-time" role="timer">25:00</p>
+        <div class="bar" aria-hidden="true"><i id="pomo-bar"></i></div>
+        <p class="pomo-cycle muted" id="pomo-cycle">Döngü 1/4</p>
+        <div class="row">
+          <button class="btn primary" id="pomo-start" type="button">Başlat</button>
+          <button class="btn" id="pomo-reset" type="button">Sıfırla</button>
+        </div>
+        <p class="pomo-status muted" id="pomo-status" aria-live="polite"></p>
+      </div>
+
+      <details class="settings">
+        <summary>Süre ayarları</summary>
+        <div class="row wrap">
+          <label class="field">Odak (dk)
+            <input type="number" id="pomo-focus-min" min="1" max="180" step="1" value="25" inputmode="numeric">
+          </label>
+          <label class="field">Kısa mola (dk)
+            <input type="number" id="pomo-short-min" min="1" max="60" step="1" value="5" inputmode="numeric">
+          </label>
+          <label class="field">Uzun mola (dk)
+            <input type="number" id="pomo-long-min" min="1" max="90" step="1" value="15" inputmode="numeric">
+          </label>
+        </div>
+        <p class="muted small">Her 4 odak sonrası uzun mola verilir. Biten her odak, zincirde bugünü işaretler.</p>
+      </details>
+    </section>
+
+    <!-- ── Notlar ───────────────────────────────── -->
+    <section class="panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" tabindex="0" hidden>
+      <div class="row spread">
+        <h2 class="panel-title">Notlar</h2>
+        <button class="btn" id="note-new" type="button">Yeni not</button>
+      </div>
+      <div class="notes-layout">
+        <aside class="note-list-wrap" aria-label="Not listesi">
+          <ul class="note-list" id="note-list"></ul>
+          <p class="empty" id="note-empty">Henüz not yok. “Yeni not” ile başlayın.</p>
+        </aside>
+        <article class="note-editor" id="note-editor" hidden>
+          <label class="visually-hidden" for="note-title">Not başlığı</label>
+          <input type="text" id="note-title" class="note-title" placeholder="Başlıksız not" autocomplete="off">
+          <label class="visually-hidden" for="note-body">Not içeriği</label>
+          <textarea id="note-body" class="note-body" placeholder="Buraya yazın…"></textarea>
+          <div class="row spread">
+            <p class="muted small" id="note-meta"></p>
+            <div class="row">
+              <button class="btn danger" id="note-delete" type="button">Sil</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── Yapılacaklar ─────────────────────────── -->
+    <section class="panel" id="panel-todos" role="tabpanel" aria-labelledby="tab-todos" tabindex="0" hidden>
+      <h2 class="panel-title">Yapılacaklar</h2>
+      <form class="row" id="todo-form">
+        <label class="visually-hidden" for="todo-input">Yapılacak madde</label>
+        <input type="text" id="todo-input" class="grow" placeholder="Yapılacak bir şey ekleyin…" autocomplete="off" required>
+        <button class="btn primary" type="submit">Ekle</button>
+      </form>
+      <p class="empty" id="todo-empty">Liste boş.</p>
+      <ul class="todo-list" id="todo-list"></ul>
+      <div class="row spread todo-foot">
+        <p class="muted small" id="todo-count">0 madde</p>
+        <div class="row">
+          <div class="segmented" role="group" aria-label="Filtre">
+            <button class="seg-btn" id="filter-all" type="button" aria-pressed="true">Tümü</button>
+            <button class="seg-btn" id="filter-active" type="button" aria-pressed="false">Aktif</button>
+            <button class="seg-btn" id="filter-done" type="button" aria-pressed="false">Tamamlanan</button>
+          </div>
+          <button class="btn ghost" id="todos-clear" type="button">Tamamlananları temizle</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Zincir ───────────────────────────────── -->
+    <section class="panel" id="panel-chain" role="tabpanel" aria-labelledby="tab-chain" tabindex="0" hidden>
+      <div class="row spread">
+        <h2 class="panel-title">Zinciri kırma</h2>
+        <button class="btn primary" id="chain-today" type="button" aria-pressed="false">Bugünü işaretle</button>
+      </div>
+      <dl class="chain-stats">
+        <div><dt>Güncel seri</dt><dd id="chain-current">0 gün</dd></div>
+        <div><dt>En uzun seri</dt><dd id="chain-best">0 gün</dd></div>
+        <div><dt>Toplam işaret</dt><dd id="chain-total">0 gün</dd></div>
+      </dl>
+      <div class="chain-scroll">
+        <div class="chain-inner">
+          <div class="chain-months" id="chain-months" aria-hidden="true"></div>
+          <div class="chain-body">
+            <div class="chain-weekdays" aria-hidden="true">
+              <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+            </div>
+            <div class="chain-grid" id="chain-grid" role="group" aria-label="Son 13 haftanın günleri" aria-describedby="chain-hint"></div>
+          </div>
+        </div>
+      </div>
+      <p class="muted small" id="chain-hint">Kareye tıklayarak ya da Enter/Boşluk ile işaretleyin; ok tuşlarıyla gezinin. Gelecek günler kapalıdır.</p>
+      <p class="muted small chain-status" id="chain-status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <footer class="app-footer muted small">
+    <p>Veriler yalnızca bu tarayıcıda saklanır (localStorage) — sunucu yok, hesap yok.</p>
+  </footer>
+
+  <script src="js/store.js" defer></script>
+  <script src="js/pomodoro.js" defer></script>
+  <script src="js/notes.js" defer></script>
+  <script src="js/todos.js" defer></script>
+  <script src="js/chain.js" defer></script>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
