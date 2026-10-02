@@ -29,6 +29,13 @@
     var saved = S.load(S.KEYS.pomodoro, null);
     if (!saved || typeof saved !== 'object') return defaultState();
     var st = Object.assign(defaultState(), saved);
+<<<<<<< HEAD
+=======
+    // Ayarlar alan alan birleştirilir; bozuk/güncellenmiş kayıt varsayılanı düşürür.
+    st.settings = Object.assign(defaultState().settings,
+      saved.settings && typeof saved.settings === 'object' ? saved.settings : {});
+    if (st.phase !== 'focus' && st.phase !== 'short' && st.phase !== 'long') st.phase = 'focus';
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     st.settings.focusMin = S.clampMinutes(st.settings.focusMin, 1, 180, 25);
     st.settings.shortMin = S.clampMinutes(st.settings.shortMin, 1, 60, 5);
     st.settings.longMin = S.clampMinutes(st.settings.longMin, 1, 90, 15);
@@ -60,7 +67,13 @@
       st.phase = 'focus';
     }
     st.remainingMs = S.phaseMinutes(st.phase, st.settings) * 60000;
+<<<<<<< HEAD
     if (st.running) st.endAt = Date.now() + st.remainingMs;
+=======
+    // Sonraki bitiş bir önceki bitişe zincirlenir; Date.now()'a sabitlenirse
+    // uyku/sekme yavaşlaması sonrası bekleyen fazlar tek tek düşer.
+    if (st.running) st.endAt = (st.endAt || Date.now()) + st.remainingMs;
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     return st;
   }
 
@@ -91,6 +104,7 @@
     els.status.textContent = msg;
   }
 
+<<<<<<< HEAD
   function beep() {
     try {
       audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -101,16 +115,71 @@
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.25);
+=======
+  /* Ses yolu kullanıcı etkileşimi içinde hazır olmalı: tarayıcıların otomatik
+     oynatma politikası dokunuşsuz açılan AudioContext'i askıya alır ve zil
+     sessiz kalır. */
+  function ensureAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      audioCtx = audioCtx || new Ctx();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     } catch (e) {
       /* ses yoksa sessiz devam */
     }
   }
 
+<<<<<<< HEAD
   function completePhase() {
     var wasFocus = state.phase === 'focus';
     state = applyCompletion(state);
     beep();
     if (wasFocus) {
+=======
+  function strike(when, freq, dur, vol) {
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, when);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(when);
+    osc.stop(when + dur);
+  }
+
+  /* Süre dolduğunda çalan uyarı zili: arka arkaya üç vuruş. */
+  function beep() {
+    ensureAudio();
+    if (!audioCtx) return;
+    try {
+      var t = audioCtx.currentTime + 0.02;
+      strike(t, 880, 0.3, 0.1);
+      strike(t + 0.28, 880, 0.3, 0.1);
+      strike(t + 0.56, 660, 0.6, 0.1);
+    } catch (e) {
+      /* ses yoksa sessiz devam */
+    }
+  }
+
+  function tick() {
+    if (!state.running || !state.endAt) return;
+    if (state.endAt > Date.now()) {
+      render();
+      return;
+    }
+    // Uyku ya da sekme yavaşlaması sonrası süresi dolan fazlar peş peşe
+    // tamamlanır; uyarı tek seferde verilir.
+    var guard = 0;
+    var completedFocus = 0;
+    while (state.running && state.endAt != null && state.endAt <= Date.now() && guard++ < 32) {
+      if (state.phase === 'focus') completedFocus += 1;
+      state = applyCompletion(state);
+    }
+    beep();
+    if (completedFocus > 0) {
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
       announce('Odak tamamlandı — ' + (state.phase === 'long' ? 'uzun mola' : 'kısa mola') + ' başladı.');
       // Glue: biten odak, zincirde bugünü işaretler.
       document.dispatchEvent(new CustomEvent('focus:pomodoro-completed', {
@@ -123,6 +192,7 @@
     render();
   }
 
+<<<<<<< HEAD
   function tick() {
     if (!state.running || !state.endAt) return;
     if (state.endAt <= Date.now()) {
@@ -132,11 +202,17 @@
     }
   }
 
+=======
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
   function start() {
     if (state.running) return;
     state.running = true;
     state.endAt = Date.now() + state.remainingMs;
+<<<<<<< HEAD
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+=======
+    ensureAudio(); // zilin duyulması için ses yolu bu dokunuşta açılır
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     announce('');
     persist();
     render();
@@ -163,14 +239,26 @@
   }
 
   function readSettings() {
+<<<<<<< HEAD
+=======
+    var beforeMs = S.phaseMinutes(state.phase, state.settings) * 60000;
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     state.settings.focusMin = S.clampMinutes(els.focusMin.value, 1, 180, state.settings.focusMin);
     state.settings.shortMin = S.clampMinutes(els.shortMin.value, 1, 60, state.settings.shortMin);
     state.settings.longMin = S.clampMinutes(els.longMin.value, 1, 90, state.settings.longMin);
     els.focusMin.value = state.settings.focusMin;
     els.shortMin.value = state.settings.shortMin;
     els.longMin.value = state.settings.longMin;
+<<<<<<< HEAD
     if (!state.running) {
       state.remainingMs = S.phaseMinutes(state.phase, state.settings) * 60000;
+=======
+    // Duraklatılmış ilerleme korunur: yalnızca o anki fazın süresi değiştiyse
+    // kalan süre oransal ölçeklenir; ilgisiz bir alan düzenlenirse dokunulmaz.
+    var afterMs = S.phaseMinutes(state.phase, state.settings) * 60000;
+    if (!state.running && afterMs !== beforeMs && beforeMs > 0) {
+      state.remainingMs = Math.round((state.remainingMs * afterMs) / beforeMs);
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     }
     persist();
     render();
@@ -206,6 +294,19 @@
       document.title = BASE_TITLE;
     });
 
+<<<<<<< HEAD
+=======
+    // Sayaç sayfa açılmadan da çalışıyor olabilir (kayıtlı halinden devam);
+    // "Başlat"a basılmasa bile zilin duyulabilmesi için ilk temasta sesi aç.
+    var unlockOnce = function () {
+      ensureAudio();
+      document.removeEventListener('pointerdown', unlockOnce);
+      document.removeEventListener('keydown', unlockOnce);
+    };
+    document.addEventListener('pointerdown', unlockOnce);
+    document.addEventListener('keydown', unlockOnce);
+
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     ticker = setInterval(tick, TICK_MS);
     render();
   }

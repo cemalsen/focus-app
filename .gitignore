@@ -1,1 +1,8 @@
 .wrongstack/
+<<<<<<< HEAD
+=======
+.temp_files/
+!/.wrongstack/
+/.wrongstack/*
+!/.wrongstack/project.json
+>>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
