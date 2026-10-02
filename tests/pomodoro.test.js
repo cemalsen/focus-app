@@ -15,6 +15,7 @@ function makeElement(id) {
     id,
     textContent: '',
     value: '',
+    checked: false,
     style: {},
     attributes: {},
     listeners: {},
@@ -26,7 +27,9 @@ function makeElement(id) {
       this.listeners[type] = (this.listeners[type] || []).filter((f) => f !== fn);
     },
     click() {
-      (this.listeners.click || []).slice().forEach((fn) => fn({ type: 'click' }));
+      this.checked = !this.checked; // gerçek DOM: tıklama kutuyu çevirir
+      (this.listeners.change || []).slice().forEach((fn) => fn({ type: 'change', target: this }));
+      (this.listeners.click || []).slice().forEach((fn) => fn({ type: 'click', target: this }));
     }
   };
 }
@@ -109,7 +112,7 @@ function boot(opts = {}) {
   const { rec, Ctor, policy } = makeAudioEnv(brokenAudio);
   const win = {
     FocusStore: S,
-    FocusApp: { persist: () => true },
+    FocusApp: { persist: (key, value) => S.save(key, value) }, // js/app.js persist gövdesi (uyarı DOM'u hariç)
     AudioContext: Ctor,
     addEventListener() {}
   };
@@ -305,6 +308,108 @@ describe('ses altyapısı yoksa akış bozulmaz', () => {
       assert.equal(app.rec.contexts.length, 0);
       assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
       assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola başladı.');
+    } finally {
+      app.cleanup();
+    }
+  });
+});
+
+/* ── zil sesi açma/kapama (sessize alma) ── */
+describe('zil sesi açma/kapama', () => {
+  it('eski kayıtlarda alan yoksa zil sesi varsayılan açıktır ve durum görünür', () => {
+    const now = 1790860800000;
+    const app = boot({ now, saved: runningFocus(now) }); // settings.bellSound alanı yok
+    try {
+      assert.equal(app.elements['pomo-sound'].checked, true);
+      assert.equal(app.elements['pomo-sound-state'].textContent, 'Açık');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('paneldeki anahtar tercihi değiştirir, durumu gösterir ve FocusStorea yazar', () => {
+    const app = boot();
+    try {
+      app.elements['pomo-sound'].click(); // kapat
+      assert.equal(app.elements['pomo-sound'].checked, false);
+      assert.equal(app.elements['pomo-sound-state'].textContent, 'Kapalı');
+      assert.equal(S.load(S.KEYS.pomodoro, null).settings.bellSound, false);
+
+      app.elements['pomo-sound'].click(); // aç
+      assert.equal(app.elements['pomo-sound'].checked, true);
+      assert.equal(app.elements['pomo-sound-state'].textContent, 'Açık');
+      assert.equal(S.load(S.KEYS.pomodoro, null).settings.bellSound, true);
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('sessizde zil çalmaz; faz tamamlanır, duyuru ve olay sürer', () => {
+    const now = 1790860800000;
+    const saved = runningFocus(now);
+    saved.settings = Object.assign({}, saved.settings, { bellSound: false });
+    const app = boot({ now, saved });
+    try {
+      app.tap();                 // jest bile sessizde ses yolu kurmaz
+      app.clock.now = now + 1500;
+      app.tick();
+
+      assert.equal(app.rec.contexts.length, 0, 'sessizde jest bile ses yolu kurulmaz');
+      assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
+      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola başladı.');
+      assert.equal(app.dispatched.length, 1);
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('kayıtlı sessiz tercihi yeniden yüklemede korunur', () => {
+    const now = 1790860800000;
+    const saved = runningFocus(now);
+    saved.settings = Object.assign({}, saved.settings, { bellSound: false });
+    const app = boot({ now, saved });
+    try {
+      assert.equal(app.elements['pomo-sound'].checked, false);
+      assert.equal(app.elements['pomo-sound-state'].textContent, 'Kapalı');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('sessizde "Başlat"a basmak da ses yolu kurmaz', () => {
+    const now = 1790860800000;
+    const saved = runningFocus(now);
+    saved.running = false;
+    saved.endAt = null;
+    saved.settings = Object.assign({}, saved.settings, { bellSound: false });
+    const app = boot({ now, saved });
+    try {
+      app.pressStart();
+      assert.equal(app.rec.contexts.length, 0, 'sessizde Başlat ses yolu kurmaz');
+      assert.equal(app.elements['pomo-start'].textContent, 'Duraklat');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('sessizden açılınca sonraki sürede zil yeniden çalar', () => {
+    const now = 1790860800000;
+    const saved = runningFocus(now);
+    saved.settings = Object.assign({}, saved.settings, { bellSound: false });
+    const app = boot({ now, saved });
+    try {
+      app.tap();                 // jest ama ses yolu sessizde kurulmaz
+      app.clock.now = now + 1500;
+      app.tick();                // 1. tamamlanma: sessiz
+      assert.equal(app.rec.contexts.length, 0, 'sessizde jest bile ses yolu kurulmaz');
+
+      app.elements['pomo-sound'].click(); // zil sesini aç: jest içinde ses yolu kurulur
+      assert.equal(app.rec.contexts.length, 1);
+      assert.equal(app.rec.contexts[0].oscillators.length, 0, 'açmak tek başına zil çaldırmaz');
+
+      app.clock.now = now + 302000;
+      app.tick();                // 2. tamamlanma (mola bitti): zil çalar
+      assert.equal(app.rec.contexts[0].oscillators.length, 3);
     } finally {
       app.cleanup();
     }

@@ -16,7 +16,7 @@
 
   function defaultState() {
     return {
-      settings: { focusMin: 25, shortMin: 5, longMin: 15 },
+      settings: { focusMin: 25, shortMin: 5, longMin: 15, bellSound: true },
       phase: 'focus',            // 'focus' | 'short' | 'long'
       focusInCycle: 0,           // döngü içinde tamamlanan odak sayısı (0..3)
       running: false,
@@ -29,13 +29,10 @@
     var saved = S.load(S.KEYS.pomodoro, null);
     if (!saved || typeof saved !== 'object') return defaultState();
     var st = Object.assign(defaultState(), saved);
-<<<<<<< HEAD
-=======
     // Ayarlar alan alan birleştirilir; bozuk/güncellenmiş kayıt varsayılanı düşürür.
     st.settings = Object.assign(defaultState().settings,
       saved.settings && typeof saved.settings === 'object' ? saved.settings : {});
     if (st.phase !== 'focus' && st.phase !== 'short' && st.phase !== 'long') st.phase = 'focus';
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     st.settings.focusMin = S.clampMinutes(st.settings.focusMin, 1, 180, 25);
     st.settings.shortMin = S.clampMinutes(st.settings.shortMin, 1, 60, 5);
     st.settings.longMin = S.clampMinutes(st.settings.longMin, 1, 90, 15);
@@ -67,13 +64,9 @@
       st.phase = 'focus';
     }
     st.remainingMs = S.phaseMinutes(st.phase, st.settings) * 60000;
-<<<<<<< HEAD
-    if (st.running) st.endAt = Date.now() + st.remainingMs;
-=======
     // Sonraki bitiş bir önceki bitişe zincirlenir; Date.now()'a sabitlenirse
     // uyku/sekme yavaşlaması sonrası bekleyen fazlar tek tek düşer.
     if (st.running) st.endAt = (st.endAt || Date.now()) + st.remainingMs;
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     return st;
   }
 
@@ -104,18 +97,13 @@
     els.status.textContent = msg;
   }
 
-<<<<<<< HEAD
-  function beep() {
-    try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
-      osc.frequency.value = 880;
-      gain.gain.value = 0.06;
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.25);
-=======
+  /* Zil sesi tercihinin görsel durumu: onay kutusu + düz metin. */
+  function renderSound() {
+    var on = state.settings.bellSound !== false;
+    els.sound.checked = on;
+    els.soundState.textContent = on ? 'Açık' : 'Kapalı';
+  }
+
   /* Ses yolu kullanıcı etkileşimi içinde hazır olmalı: tarayıcıların otomatik
      oynatma politikası dokunuşsuz açılan AudioContext'i askıya alır ve zil
      sessiz kalır. */
@@ -125,19 +113,11 @@
       if (!Ctx) return;
       audioCtx = audioCtx || new Ctx();
       if (audioCtx.state === 'suspended') audioCtx.resume();
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     } catch (e) {
       /* ses yoksa sessiz devam */
     }
   }
 
-<<<<<<< HEAD
-  function completePhase() {
-    var wasFocus = state.phase === 'focus';
-    state = applyCompletion(state);
-    beep();
-    if (wasFocus) {
-=======
   function strike(when, freq, dur, vol) {
     var osc = audioCtx.createOscillator();
     var gain = audioCtx.createGain();
@@ -151,6 +131,8 @@
 
   /* Süre dolduğunda çalan uyarı zili: arka arkaya üç vuruş. */
   function beep() {
+    // Sessizde ses yolu hiç kurulmaz: AudioContext'in kendisi inşa edilmez.
+    if (state.settings.bellSound === false) return;
     ensureAudio();
     if (!audioCtx) return;
     try {
@@ -179,7 +161,6 @@
     }
     beep();
     if (completedFocus > 0) {
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
       announce('Odak tamamlandı — ' + (state.phase === 'long' ? 'uzun mola' : 'kısa mola') + ' başladı.');
       // Glue: biten odak, zincirde bugünü işaretler.
       document.dispatchEvent(new CustomEvent('focus:pomodoro-completed', {
@@ -192,27 +173,12 @@
     render();
   }
 
-<<<<<<< HEAD
-  function tick() {
-    if (!state.running || !state.endAt) return;
-    if (state.endAt <= Date.now()) {
-      completePhase();
-    } else {
-      render();
-    }
-  }
-
-=======
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
   function start() {
     if (state.running) return;
     state.running = true;
     state.endAt = Date.now() + state.remainingMs;
-<<<<<<< HEAD
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-=======
-    ensureAudio(); // zilin duyulması için ses yolu bu dokunuşta açılır
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
+    // Zil sesi açıksa ses yolu bu dokunuşta açılır; sessizde hiç kurulmaz.
+    if (state.settings.bellSound !== false) ensureAudio();
     announce('');
     persist();
     render();
@@ -239,26 +205,18 @@
   }
 
   function readSettings() {
-<<<<<<< HEAD
-=======
     var beforeMs = S.phaseMinutes(state.phase, state.settings) * 60000;
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     state.settings.focusMin = S.clampMinutes(els.focusMin.value, 1, 180, state.settings.focusMin);
     state.settings.shortMin = S.clampMinutes(els.shortMin.value, 1, 60, state.settings.shortMin);
     state.settings.longMin = S.clampMinutes(els.longMin.value, 1, 90, state.settings.longMin);
     els.focusMin.value = state.settings.focusMin;
     els.shortMin.value = state.settings.shortMin;
     els.longMin.value = state.settings.longMin;
-<<<<<<< HEAD
-    if (!state.running) {
-      state.remainingMs = S.phaseMinutes(state.phase, state.settings) * 60000;
-=======
     // Duraklatılmış ilerleme korunur: yalnızca o anki fazın süresi değiştiyse
     // kalan süre oransal ölçeklenir; ilgisiz bir alan düzenlenirse dokunulmaz.
     var afterMs = S.phaseMinutes(state.phase, state.settings) * 60000;
     if (!state.running && afterMs !== beforeMs && beforeMs > 0) {
       state.remainingMs = Math.round((state.remainingMs * afterMs) / beforeMs);
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     }
     persist();
     render();
@@ -275,13 +233,16 @@
       status: document.getElementById('pomo-status'),
       focusMin: document.getElementById('pomo-focus-min'),
       shortMin: document.getElementById('pomo-short-min'),
-      longMin: document.getElementById('pomo-long-min')
+      longMin: document.getElementById('pomo-long-min'),
+      sound: document.getElementById('pomo-sound'),
+      soundState: document.getElementById('pomo-sound-state')
     };
     state = loadState();
 
     els.focusMin.value = state.settings.focusMin;
     els.shortMin.value = state.settings.shortMin;
     els.longMin.value = state.settings.longMin;
+    renderSound();
 
     els.start.addEventListener('click', function () {
       state.running ? pause() : start();
@@ -290,23 +251,29 @@
     [els.focusMin, els.shortMin, els.longMin].forEach(function (input) {
       input.addEventListener('change', readSettings);
     });
+    els.sound.addEventListener('change', function () {
+      state.settings.bellSound = !!els.sound.checked;
+      // Kutuyu işaretlemek bir kullanıcı jestidir: ses yolu şimdi hazırlanır
+      // ki sonraki zil duyulsun (sessizde bugüne dek hiç kurulmamış olur).
+      if (state.settings.bellSound) ensureAudio();
+      renderSound();
+      persist();
+    });
     window.addEventListener('beforeunload', function () {
       document.title = BASE_TITLE;
     });
 
-<<<<<<< HEAD
-=======
     // Sayaç sayfa açılmadan da çalışıyor olabilir (kayıtlı halinden devam);
     // "Başlat"a basılmasa bile zilin duyulabilmesi için ilk temasta sesi aç.
+    // Sessizde ses yolu hiç kurulmaz (bkz. beep() sözleşmesi).
     var unlockOnce = function () {
-      ensureAudio();
+      if (state.settings.bellSound !== false) ensureAudio();
       document.removeEventListener('pointerdown', unlockOnce);
       document.removeEventListener('keydown', unlockOnce);
     };
     document.addEventListener('pointerdown', unlockOnce);
     document.addEventListener('keydown', unlockOnce);
 
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
     ticker = setInterval(tick, TICK_MS);
     render();
   }
