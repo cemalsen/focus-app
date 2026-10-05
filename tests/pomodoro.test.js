@@ -217,7 +217,7 @@ describe('uyarı zili — süre dolduğunda çalar', () => {
       }
 
       assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
-      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola başladı.');
+      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola sırada. Başlat ile başlatın.');
       assert.equal(app.dispatched.length, 1);
       assert.equal(app.dispatched[0].type, 'focus:pomodoro-completed');
     } finally {
@@ -239,7 +239,7 @@ describe('uyarı zili — süre dolduğunda çalar', () => {
 
       assert.equal(app.rec.contexts[0].oscillators.length, 3);
       assert.equal(app.elements['pomo-phase'].textContent, 'Odak');
-      assert.equal(app.elements['pomo-status'].textContent, 'Mola bitti — odak başladı.');
+      assert.equal(app.elements['pomo-status'].textContent, 'Mola bitti — odak sırada. Başlat ile başlatın.');
     } finally {
       app.cleanup();
     }
@@ -307,7 +307,7 @@ describe('ses altyapısı yoksa akış bozulmaz', () => {
 
       assert.equal(app.rec.contexts.length, 0);
       assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
-      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola başladı.');
+      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola sırada. Başlat ile başlatın.');
     } finally {
       app.cleanup();
     }
@@ -356,7 +356,7 @@ describe('zil sesi açma/kapama', () => {
 
       assert.equal(app.rec.contexts.length, 0, 'sessizde jest bile ses yolu kurulmaz');
       assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
-      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola başladı.');
+      assert.equal(app.elements['pomo-status'].textContent, 'Odak tamamlandı — kısa mola sırada. Başlat ile başlatın.');
       assert.equal(app.dispatched.length, 1);
     } finally {
       app.cleanup();
@@ -407,9 +407,85 @@ describe('zil sesi açma/kapama', () => {
       assert.equal(app.rec.contexts.length, 1);
       assert.equal(app.rec.contexts[0].oscillators.length, 0, 'açmak tek başına zil çaldırmaz');
 
+      app.pressStart();          // elle geçiş: mola yalnızca kullanıcı başlatınca çalışır
+      assert.equal(app.elements['pomo-start'].textContent, 'Duraklat');
+
       app.clock.now = now + 302000;
-      app.tick();                // 2. tamamlanma (mola bitti): zil çalar
+      app.tick();                // 2. tamamlanma (elle başlatılan mola bitti): zil çalar
       assert.equal(app.rec.contexts[0].oscillators.length, 3);
+    } finally {
+      app.cleanup();
+    }
+  });
+});
+
+/* ── elle faz geçişi: süre bitince sıradaki faz otomatik başlamaz ── */
+describe('elle faz geçişi — otomatik başlama yok', () => {
+  it('odak bitince mola hazır bekler; Başlat bastırılmadan ekstra tick fazı ilerletmez', () => {
+    const now = 1790860800000;
+    const app = boot({ now, saved: runningFocus(now) });
+    try {
+      app.tap();                 // zil duyulsun diye ses yolu açılır
+      app.clock.now = now + 1500;
+      app.tick();                // odak biter
+
+      assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat', 'sıradaki faz çalışmaz, Başlat bekler');
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.running, false, 'sayaç tamamlanınca durur');
+      assert.equal(st.endAt, null);
+      assert.equal(st.phase, 'short');
+      assert.equal(st.remainingMs, 5 * 60000, 'mola tam süresiyle hazır bekler');
+
+      const oscBefore = app.rec.contexts[0].oscillators.length;
+      app.clock.now = now + 3600000;  // 1 saat sonra; kullanıcı başlatmadı
+      app.tick();
+      assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola', 'mola otomatik başlamaz');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+      assert.equal(app.rec.contexts[0].oscillators.length, oscBefore, 'ekstra tick zil çaldırmaz');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('mola bitince odak hazır bekler; mola tamamlanması zinciri işaretlemez', () => {
+    const now = 1790860800000;
+    const saved = Object.assign(runningFocus(now), { phase: 'short', endAt: now + 1000 });
+    const app = boot({ now, saved });
+    try {
+      app.tap();
+      app.clock.now = now + 1500;
+      app.tick();
+
+      assert.equal(app.elements['pomo-phase'].textContent, 'Odak');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.running, false);
+      assert.equal(st.phase, 'focus');
+      assert.equal(st.remainingMs, 25 * 60000);
+      assert.equal(app.dispatched.length, 0, 'mola tamamlanması günü işaretlemez');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('Başlat ile mola çalışır; bitince odak yine bekler (elle döngü)', () => {
+    const now = 1790860800000;
+    const app = boot({ now, saved: runningFocus(now) });
+    try {
+      app.tap();
+      app.clock.now = now + 1500;
+      app.tick();                // odak biter → mola hazır, bekler
+
+      app.pressStart();          // kullanıcı molayı başlatır
+      assert.equal(app.elements['pomo-start'].textContent, 'Duraklat');
+
+      app.clock.now = now + 1500 + 5 * 60000 + 1000;
+      app.tick();                // mola biter → odak hazır, bekler
+      assert.equal(app.elements['pomo-phase'].textContent, 'Odak');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+      assert.equal(S.load(S.KEYS.pomodoro, null).running, false);
+      assert.equal(app.elements['pomo-status'].textContent, 'Mola bitti — odak sırada. Başlat ile başlatın.');
     } finally {
       app.cleanup();
     }

@@ -37,11 +37,14 @@
     st.settings.shortMin = S.clampMinutes(st.settings.shortMin, 1, 60, 5);
     st.settings.longMin = S.clampMinutes(st.settings.longMin, 1, 90, 15);
     if (st.running && st.endAt) {
-      // Sayfa kapalıyken geçen süre: fazları peş peşe tamamlanmış say.
-      var guard = 0;
-      while (st.running && st.endAt != null && st.endAt <= Date.now() && guard++ < 32) {
+      // Sayfa kapalıyken süresi dolan tek faz tamamlanmış sayılır; sıradaki faz
+      // otomatik başlamaz, kullanıcının "Başlat"ına kadar bekler.
+      if (st.endAt <= Date.now()) {
         st = applyCompletion(st);
+        st.running = false;
+        st.endAt = null;
       }
+      // endAt gelecekteyse: çalışan sayaç kaldığı yerden sürer (faz geçişi yok).
     } else {
       st.running = false;
       st.endAt = null;
@@ -151,23 +154,24 @@
       render();
       return;
     }
-    // Uyku ya da sekme yavaşlaması sonrası süresi dolan fazlar peş peşe
-    // tamamlanır; uyarı tek seferde verilir.
-    var guard = 0;
+    // Süresi dolan faz tamamlanır; ardından sayaç durur. Sıradaki faz
+    // (mola ya da odak) otomatik başlamaz; kullanıcı "Başlat"a basana dek bekler.
+    // Uyku/sekme yavaşlaması sonrası da tek geçiş yapılır: bir sonraki faz henüz
+    // hiç çalışmadığı için tamamlanmış sayılamaz. Zil tek seferde çalar.
     var completedFocus = 0;
-    while (state.running && state.endAt != null && state.endAt <= Date.now() && guard++ < 32) {
-      if (state.phase === 'focus') completedFocus += 1;
-      state = applyCompletion(state);
-    }
+    if (state.phase === 'focus') completedFocus += 1;
+    state = applyCompletion(state);
+    state.running = false;
+    state.endAt = null;
     beep();
     if (completedFocus > 0) {
-      announce('Odak tamamlandı — ' + (state.phase === 'long' ? 'uzun mola' : 'kısa mola') + ' başladı.');
+      announce('Odak tamamlandı — ' + (state.phase === 'long' ? 'uzun mola' : 'kısa mola') + ' sırada. Başlat ile başlatın.');
       // Glue: biten odak, zincirde bugünü işaretler.
       document.dispatchEvent(new CustomEvent('focus:pomodoro-completed', {
         detail: { dateKey: S.dateKey(new Date()) }
       }));
     } else {
-      announce('Mola bitti — odak başladı.');
+      announce('Mola bitti — odak sırada. Başlat ile başlatın.');
     }
     persist();
     render();
