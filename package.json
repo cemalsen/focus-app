@@ -1,0 +1,16 @@
+{
+  "name": "odak",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Odak — pomodoro, notlar, yapılacaklar, zincir (bağımlılıksız tarayıcı uygulaması)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

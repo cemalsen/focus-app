@@ -1,11 +1,11 @@
 # Odak — odaklanma uygulaması
 
-Bağımlılıksız, tek sayfalık bir odaklanma uygulaması. Dört özellik içerir, fazlası bilinçli olarak kapsam dışıdır.
+Bağımlılıksız, tek sayfalık bir odaklanma uygulaması. Dört özellik içerir, fazlası bilinçli olarak kapsam dışıdır. Çalışma zamanında hiçbir paket gerekmez; yalnız testler için `playwright` geliştirme bağımlılığı vardır.
 
 ## Özellikler
 
 1. **Pomodoro** — 25 dk odak / 5 dk kısa mola / 4 döngüde 15 dk uzun mola; başlat–duraklat–sıfırla; süreler ayarlardan değiştirilebilir. Sayaç duvara saatine göre işler, sekme arka plandayken de şaşmaz. Biten her odak yumuşak bir *bip* sesi verir.
-2. **Notlar** — başlık + gövde; oluştur, düzenle, sil. Yazdıkça otomatik kaydedilir; liste son güncelleme zamanına göre sıralanır.
+2. **Notlar** — başlık + gövde. “Yeni not” açılır pencerede (pop-up) not alma formu açar: **Tamam** kaydeder, **İptal** vazgeçer (Esc ile de kapatılır); her iki alan da boşsa not oluşmaz. Var olan notlar satır içi düzenlenir, silinir. Yazdıkça otomatik kaydedilir; liste son güncelleme zamanına göre sıralanır.
 3. **Yapılacaklar** — ekle, tamamla, sil; tümü/aktif/tamamlanan filtresi; “tamamlananları temizle”.
 4. **Zinciri kırma** — son 13 haftanın ızgarası; güne tıklayarak işaretle/kaldır; güncel seri, en uzun seri ve toplam gün sayaçları. Bir pomodoro tamamlandığında bugünkü gün otomatik işaretlenir.
 
@@ -99,6 +99,9 @@ kaynak sezgiseldir; görsel ve ekran okuyucu incelemesi insan gözü gerektirir.
 ## Kontroller
 
 ```sh
+npm install   # yalnız test bağımlılığı: playwright (uygulamayı çalıştırmak için gerekmez)
 for f in js/*.js; do node --check "$f"; done
 node --test tests/
 ```
+
+`tests/notes-click.test.js` gerçek tarayıcıda uçtan uca koşar: “editörde yaz → hemen başka nota tıkla” yutulan tıklama regresyonunu korur. Sistem Chrome'u kullanır; yoksa `npx playwright install chromium` ile Playwright tarayıcısı kurulabilir. Hiç tarayıcı bulunamazsa bu test `skip` olur, diğerleri yeşil kalır.

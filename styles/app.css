@@ -327,6 +327,23 @@ input[type="number"] { width: 6ch; }
   width: 100%;
 }
 
+/* Yeni not pop-up'ı (yerel <dialog>) */
+.note-dialog {
+  background: var(--surface);
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--fg);
+  padding: var(--space-6);
+  width: min(32rem, calc(100vw - 2rem));
+}
+/* Perde teması koyulaştırır; koyu temada açık "sis" olmaması için yön değişir. */
+.note-dialog::backdrop { background: color-mix(in oklab, var(--fg) 30%, transparent); }
+.dark .note-dialog::backdrop { background: color-mix(in oklab, var(--bg) 65%, transparent); }
+.note-dialog-form { display: flex; flex-direction: column; gap: var(--space-4); }
+.note-dialog-form .panel-title { margin: 0; }
+.note-dialog-form .note-dialog-body { min-height: 10rem; resize: vertical; width: 100%; }
+.note-dialog-actions { justify-content: flex-end; }
+
 /* ── yapılacaklar ───────────────────────────────────────── */
 #todo-form { margin-bottom: var(--space-4); }
 

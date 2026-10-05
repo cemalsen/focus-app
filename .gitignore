@@ -1,8 +1,12 @@
-.wrongstack/
-<<<<<<< HEAD
-=======
+# Çalışma artıkları ve üretilmiş dosyalar
+node_modules/
 .temp_files/
-!/.wrongstack/
+
+# .wrongstack içeriği gizli kalır, yalnız project.json takipte kalır.
+# Üst dizini (*.wrongstack/) yoksaymadan yalnız içerikleri yoksaymak şart:
+# hariç tutulan bir dizinin içindeki dosya negasyonla geri alınamaz.
 /.wrongstack/*
 !/.wrongstack/project.json
->>>>>>> 7b987fd (Pomodoro: sesli uyarı eklendi)
+
+.wrongstack/
+!/.wrongstack/

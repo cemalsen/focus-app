@@ -133,6 +133,15 @@
     return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
   }
 
+  /* ── not taslağı ───────────────────────────────────────── */
+  // "Yeni not" formundan gelen değerler; her ikisi de boşsa null — boş not kaydedilmez.
+  function noteDraft(title, body) {
+    var t = String(title == null ? '' : title).trim();
+    var b = String(body == null ? '' : body).trim();
+    if (!t && !b) return null;
+    return { title: t, body: b };
+  }
+
   var api = {
     KEYS: KEYS,
     CYCLE_LEN: CYCLE_LEN,
@@ -152,7 +161,8 @@
     phaseMinutes: phaseMinutes,
     breakAfter: breakAfter,
     remainingSeconds: remainingSeconds,
-    formatClock: formatClock
+    formatClock: formatClock,
+    noteDraft: noteDraft
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

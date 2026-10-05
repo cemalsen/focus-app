@@ -84,6 +84,23 @@
           </div>
         </article>
       </div>
+
+      <dialog class="note-dialog" id="note-dialog" aria-labelledby="note-dialog-heading">
+        <form method="dialog" class="note-dialog-form">
+          <h2 class="panel-title" id="note-dialog-heading">Yeni not</h2>
+          <label class="field">Başlık
+            <input type="text" id="note-new-title" placeholder="Başlıksız not" autocomplete="off">
+          </label>
+          <label class="field">İçerik
+            <textarea id="note-new-body" class="note-dialog-body" placeholder="Buraya yazın…"></textarea>
+          </label>
+          <p class="muted small">Her iki alan da boşsa not kaydedilmez.</p>
+          <div class="row note-dialog-actions">
+            <button class="btn primary" type="submit" value="ok">Tamam</button>
+            <button class="btn" type="submit" value="cancel">İptal</button>
+          </div>
+        </form>
+      </dialog>
     </section>
 
     <!-- ── Yapılacaklar ─────────────────────────── -->

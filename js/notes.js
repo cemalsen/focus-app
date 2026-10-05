@@ -56,6 +56,17 @@
     });
   }
 
+  // Kaydetme sırasında listeyi yeniden çizme: bas–bırak arasında hedef düğme
+  // yok olur ve updatedAt sıçraması satırları imleç altından kaydırır; o aradaki
+  // tıklama yutulur (senaryo: editörde yaz → hemen başka nota tıkla). Satırı
+  // yerinde tazele; sıralama yalnız select()/renderList() çağrısında yenilenir.
+  function refreshRow(n) {
+    var btn = els.list.querySelector('.note-item[data-id="' + n.id + '"]');
+    if (!btn) { renderList(); return; }
+    btn.querySelector('.note-item-title').textContent = n.title.trim() || 'Başlıksız not';
+    btn.querySelector('.note-item-date').textContent = fmtDate(n.updatedAt);
+  }
+
   function renderEditor() {
     var n = get(selectedId);
     els.editor.hidden = !n;
@@ -92,14 +103,25 @@
     n.body = els.body.value;
     n.updatedAt = new Date().toISOString();
     var ok = persist();
-    renderList();
+    refreshRow(n);
     els.meta.textContent = ok ? 'Güncellendi: ' + fmtDate(n.updatedAt) : 'Kaydedilemedi!';
   }
 
-  function create() {
+  // "Yeni not" boş not kaydetmez: önce pop-up form açılır, not yalnız "Tamam" ile oluşur.
+  function openCreateDialog() {
     flushSave();
+    els.dialog.returnValue = '';
+    els.newTitle.value = '';
+    els.newBody.value = '';
+    els.dialog.showModal();
+    els.newTitle.focus();
+  }
+
+  function createFromDialog() {
+    var draft = S.noteDraft(els.newTitle.value, els.newBody.value);
+    if (!draft) return; // her iki alan da boş: not oluşturulmaz
     var now = new Date().toISOString();
-    var n = { id: S.uid(), title: '', body: '', createdAt: now, updatedAt: now };
+    var n = { id: S.uid(), title: draft.title, body: draft.body, createdAt: now, updatedAt: now };
     notes.push(n);
     persist();
     select(n.id);
@@ -128,15 +150,22 @@
       body: document.getElementById('note-body'),
       meta: document.getElementById('note-meta'),
       createBtn: document.getElementById('note-new'),
-      deleteBtn: document.getElementById('note-delete')
+      deleteBtn: document.getElementById('note-delete'),
+      dialog: document.getElementById('note-dialog'),
+      newTitle: document.getElementById('note-new-title'),
+      newBody: document.getElementById('note-new-body')
     };
 
     notes = S.load(S.KEYS.notes, []);
     if (!Array.isArray(notes)) notes = [];
     selectedId = sorted()[0] ? sorted()[0].id : null;
 
-    els.createBtn.addEventListener('click', create);
+    els.createBtn.addEventListener('click', openCreateDialog);
     els.deleteBtn.addEventListener('click', remove);
+    // Pop-up: "Tamam" (returnValue "ok") notu kurar; "İptal" ve Esc yalnız kapatır.
+    els.dialog.addEventListener('close', function () {
+      if (els.dialog.returnValue === 'ok') createFromDialog();
+    });
     els.title.addEventListener('input', scheduleSave);
     els.body.addEventListener('input', scheduleSave);
     // Düzenleyiciyi kapatırken kaybetme: sekme değişiminde ve sayfadan çıkarken yaz.

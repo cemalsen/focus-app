@@ -365,3 +365,25 @@ describe('sözleşme sabitleri (KEYS / CYCLE_LEN)', () => {
     assert.equal(S.CYCLE_LEN, 4);
   });
 });
+
+/* ── noteDraft — "Yeni not" pop-up formundan not kurma ── */
+describe('noteDraft — yeni not taslağı', () => {
+  it('başlık ve içerik doluyken taslağı verir', () => {
+    assert.deepEqual(S.noteDraft('Alışveriş', 'süt, ekmek'), { title: 'Alışveriş', body: 'süt, ekmek' });
+  });
+
+  it('yalnız başlık ya da yalnız içerikle not oluşur', () => {
+    assert.deepEqual(S.noteDraft('Alışveriş', ''), { title: 'Alışveriş', body: '' });
+    assert.deepEqual(S.noteDraft('', 'süt, ekmek'), { title: '', body: 'süt, ekmek' });
+  });
+
+  it('her iki alan da boşken null — boş "Başlıksız not" kaydedilmez (regresyon)', () => {
+    assert.equal(S.noteDraft('', ''), null);
+    assert.equal(S.noteDraft('   ', '\n\t '), null);
+    assert.equal(S.noteDraft(null, undefined), null);
+  });
+
+  it('kenar boşlukları kırpılır', () => {
+    assert.deepEqual(S.noteDraft('  Alışveriş  ', ' süt '), { title: 'Alışveriş', body: 'süt' });
+  });
+});
