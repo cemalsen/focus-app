@@ -6,7 +6,7 @@ Bağımlılıksız, tek sayfalık bir odaklanma uygulaması. Dört özellik içe
 
 1. **Pomodoro** — 25 dk odak / 5 dk kısa mola / 4 döngüde 15 dk uzun mola; başlat–duraklat–sıfırla; süreler ayarlardan değiştirilebilir. Sayaç duvara saatine göre işler, sekme arka plandayken de şaşmaz. Biten her odak yumuşak bir *bip* sesi verir.
 2. **Notlar** — başlık + gövde. “Yeni not” açılır pencerede (pop-up) not alma formu açar: **Tamam** kaydeder, **İptal** vazgeçer (Esc ile de kapatılır); her iki alan da boşsa not oluşmaz. Var olan notlar satır içi düzenlenir, silinir; gövde **markdown** olarak önizlenir (başlıklar, listeler, kalın/italik, `kod`, alıntı, bağlantılar). Liste sırası kullanıcıya aittir — satırdaki tutamaktan (⠿) sürükleyip bırakılarak (dokunmatik dâhil) ya da tutamak odaklıyken ↑/↓ ile taşınır; bir notu açmak/okumak sırayı değiştirmez. Yazdıkça otomatik kaydedilir.
-3. **Yapılacaklar** — ekle, tamamla, sil; tümü/aktif/tamamlanan filtresi; “tamamlananları temizle”.
+3. **Yapılacaklar** — ekle, tamamla, sil; tümü/aktif/tamamlanan filtresi; “tamamlananları temizle”. Sıralama satırdaki tutamaktan (⠿) sürüklenerek (dokunmatik dâhil) ya da tutamak odaklıyken ↑/↓ ile taşınır.
 4. **Zinciri kırma** — son 13 haftanın ızgarası; güne tıklayarak işaretle/kaldır; güncel seri, en uzun seri ve toplam gün sayaçları. Bir pomodoro tamamlandığında bugünkü gün otomatik işaretlenir.
 
 ## Kapsam

@@ -511,3 +511,18 @@ describe('placeNote — surukle-birak siralamasi', () => {
     assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['a', 'b']);
   });
 });
+
+/* ── yardımcılar todo-şekli nesnelerle (updatedAt yok) ── */
+describe('yardımcılar todo-şekli nesnelerle (updatedAt yok)', () => {
+  it('normalizeNotes order alanını createdAt epochundan kurar; moveNote çalışır', () => {
+    const t1 = { id: 't1', text: 'bir', done: false, createdAt: '2026-10-01T09:00:00.000Z' };
+    const t2 = { id: 't2', text: 'iki', done: false, createdAt: '2026-10-02T09:00:00.000Z' };
+    S.normalizeNotes([t1, t2]);
+    assert.equal(t1.order, Date.parse('2026-10-01T09:00:00.000Z'));
+    assert.deepEqual(S.sortNotes([t1, t2]).map((n) => n.id), ['t2', 't1']);
+    assert.equal(S.moveNote([t1, t2], 't1', -1), true);
+    assert.deepEqual(S.sortNotes([t1, t2]).map((n) => n.id), ['t1', 't2']);
+    assert.equal(t1.createdAt, '2026-10-01T09:00:00.000Z', 'createdAt de değişmemeli');
+    assert.equal(t1.done, false);
+  });
+});
