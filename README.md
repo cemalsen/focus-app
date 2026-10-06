@@ -5,7 +5,7 @@ Bağımlılıksız, tek sayfalık bir odaklanma uygulaması. Dört özellik içe
 ## Özellikler
 
 1. **Pomodoro** — 25 dk odak / 5 dk kısa mola / 4 döngüde 15 dk uzun mola; başlat–duraklat–sıfırla; süreler ayarlardan değiştirilebilir. Sayaç duvara saatine göre işler, sekme arka plandayken de şaşmaz. Biten her odak yumuşak bir *bip* sesi verir.
-2. **Notlar** — başlık + gövde. “Yeni not” açılır pencerede (pop-up) not alma formu açar: **Tamam** kaydeder, **İptal** vazgeçer (Esc ile de kapatılır); her iki alan da boşsa not oluşmaz. Var olan notlar satır içi düzenlenir, silinir. Yazdıkça otomatik kaydedilir; liste son güncelleme zamanına göre sıralanır.
+2. **Notlar** — başlık + gövde. “Yeni not” açılır pencerede (pop-up) not alma formu açar: **Tamam** kaydeder, **İptal** vazgeçer (Esc ile de kapatılır); her iki alan da boşsa not oluşmaz. Var olan notlar satır içi düzenlenir, silinir; gövde **markdown** olarak önizlenir (başlıklar, listeler, kalın/italik, `kod`, alıntı, bağlantılar). Liste sırası kullanıcıya aittir — ↑/↓ düğmeleriyle ya da satırı sürükleyip bırakarak taşınır; bir notu açmak/okumak sırayı değiştirmez. Yazdıkça otomatik kaydedilir.
 3. **Yapılacaklar** — ekle, tamamla, sil; tümü/aktif/tamamlanan filtresi; “tamamlananları temizle”.
 4. **Zinciri kırma** — son 13 haftanın ızgarası; güne tıklayarak işaretle/kaldır; güncel seri, en uzun seri ve toplam gün sayaçları. Bir pomodoro tamamlandığında bugünkü gün otomatik işaretlenir.
 
@@ -104,4 +104,4 @@ for f in js/*.js; do node --check "$f"; done
 node --test tests/
 ```
 
-`tests/notes-click.test.js` gerçek tarayıcıda uçtan uca koşar: “editörde yaz → hemen başka nota tıkla” yutulan tıklama regresyonunu korur. Sistem Chrome'u kullanır; yoksa `npx playwright install chromium` ile Playwright tarayıcısı kurulabilir. Hiç tarayıcı bulunamazsa bu test `skip` olur, diğerleri yeşil kalır.
+`tests/notes-click.test.js` ve `tests/notes-view.test.js` gerçek tarayıcıda uçtan uca koşar: yutulan tıklama, bir notu okumanın sırayı bozmaması, elle sıralamanın kalıcılığı ve markdown önizleme/HTML kaçışı regresyonlarını korur (`tests/markdown.test.js` birim katmanı). Sistem Chrome'u kullanır; yoksa `npx playwright install chromium` ile Playwright tarayıcısı kurulabilir. Hiç tarayıcı bulunamazsa bu testler `skip` olur, diğerleri yeşil kalır.

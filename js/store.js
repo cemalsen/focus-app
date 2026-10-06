@@ -142,6 +142,159 @@
     return { title: t, body: b };
   }
 
+  /* ── not sırası: kullanıcıya ait, zamandan bağımsız ─────── */
+  // Sıra `order` alanındadır (büyük olan üstte). Bir notu açmak/görüntü
+  // sayaçlarına dokunmak yalnız updatedAt'e yazar; sıra değişmez. Eski
+  // kayıtlarda order yoktur: updatedAt epoch'u ile doldurulur ki geçişte
+  // bugünkü görünüm korunsun.
+  function normalizeNotes(list) {
+    var arr = Array.isArray(list) ? list : [];
+    arr.forEach(function (n) {
+      if (typeof n.order !== 'number' || !isFinite(n.order)) {
+        n.order = Date.parse(n.updatedAt || n.createdAt || '') || 0;
+      }
+    });
+    return arr;
+  }
+
+  function sortNotes(list) {
+    return normalizeNotes(Array.isArray(list) ? list : []).slice().sort(function (a, b) {
+      return (b.order - a.order) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
+  }
+
+  // dir: -1 yukarı, +1 aşağı. Komşuyla order takası; sınırda false (sıra sabit).
+  function moveNote(list, id, dir) {
+    var arr = sortNotes(list);
+    var i = -1;
+    arr.forEach(function (n, idx) { if (n.id === id) i = idx; });
+    var j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return false;
+    var tmp = arr[i].order;
+    arr[i].order = arr[j].order;
+    arr[j].order = tmp;
+    return true;
+  }
+
+  /* ── markdown alt kümesi → güvenli HTML ─────────────────── */
+  // Desteklenen: # başlıklar, -,*,+ ve 1. listeler, **kalın**, __kalın__,
+  // *italik*, _italik_, `kod`, ~~üstü çizili~~, [metin](bağlantı), > alıntı,
+  // paragraf (paragraf içi tek satır sonu <br>). Girdi her zaman kaçırılır;
+  // bağlantı şeması beyaz listelidir (https?, mailto) — javascript: HTML'e girmez.
+  function mdEscape(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Bağlantılar önce yer tutucuya alınır: URL vurgu kurallarının eline düşmez
+  // (https://a.com/a*b*c gibi hedefler bozulmaz); yalnız etiket vurgulanır.
+  function applyEmphasis(t) {
+    t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/(^|[\s([{>])__([^_\n]+)__/gm, '$1<strong>$2</strong>');
+    t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    t = t.replace(/(^|[\s([{>])_([^_\n]+)_/gm, '$1<em>$2</em>');
+    t = t.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+    return t;
+  }
+
+  function mdEmphasis(t) {
+    var links = [];
+    t = t.replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]*)\)/gi, function (m, label, url) {
+      links.push('<a href="' + url + '" rel="noopener noreferrer">' + applyEmphasis(label) + '</a>');
+      return '\u0000' + (links.length - 1) + '\u0000';
+    });
+    t = applyEmphasis(t);
+    return t.replace(/\u0000(\d+)\u0000/g, function (m, i) { return links[Number(i)]; });
+  }
+
+  function mdInline(escaped) {
+    // `kod` dilimleri diğer dönüşümlerden korunur; eşleşmeyen ters tırnak metin kalır.
+    var out = '';
+    var rest = escaped;
+    for (;;) {
+      var open = rest.indexOf('`');
+      var close = open < 0 ? -1 : rest.indexOf('`', open + 1);
+      if (open < 0 || close < 0) { out += mdEmphasis(rest); break; }
+      out += mdEmphasis(rest.slice(0, open));
+      out += '<code>' + rest.slice(open + 1, close) + '</code>';
+      rest = rest.slice(close + 1);
+    }
+    return out;
+  }
+
+  function mdToHtml(src) {
+    var lines = mdEscape(src).split(/\r\n|\r|\n/);
+    var html = [];
+    var para = [];
+    var quote = [];
+    var list = null;
+
+    function flushPara() {
+      if (!para.length) return;
+      html.push('<p>' + para.map(mdInline).join('<br>') + '</p>');
+      para = [];
+    }
+    function flushQuote() {
+      if (!quote.length) return;
+      html.push('<blockquote>' + quote.map(mdInline).join('<br>') + '</blockquote>');
+      quote = [];
+    }
+    function flushList() {
+      if (!list) return;
+      html.push('<' + list.tag + '>' + list.items.map(function (it) {
+        return '<li>' + mdInline(it) + '</li>';
+      }).join('') + '</' + list.tag + '>');
+      list = null;
+    }
+    function flushAll() { flushPara(); flushList(); flushQuote(); }
+
+    lines.forEach(function (line) {
+      var h = /^(#{1,6})\s+(.+)$/.exec(line);
+      var li = /^[-*+]\s+(.+)$/.exec(line);
+      var oli = /^\d+[.)]\s+(.+)$/.exec(line);
+      var q = /^&gt;\s?(.*)$/.exec(line);
+      if (q) { flushPara(); flushList(); quote.push(q[1]); return; }
+      if (h) {
+        flushAll();
+        html.push('<h' + h[1].length + '>' + mdInline(h[2]) + '</h' + h[1].length + '>');
+        return;
+      }
+      if (li || oli) {
+        flushPara();
+        flushQuote();
+        var tag = li ? 'ul' : 'ol';
+        if (!list || list.tag !== tag) { flushList(); list = { tag: tag, items: [] }; }
+        list.items.push((li || oli)[1]);
+        return;
+      }
+      if (!line.trim()) { flushAll(); return; }
+      flushList();
+      flushQuote();
+      para.push(line.trim());
+    });
+    flushAll();
+    return html.join('\n');
+  }
+
+
+
+  // Surukle-birak: id'yi gorunum diziliminde targetIndex noktasina tasir (0 = tepe).
+  // Yalniz order alanlari yeniden dagitilir (azalan tamsayilar); updatedAt'e dokunulmaz.
+  function placeNote(list, id, targetIndex) {
+    var arr = sortNotes(list);
+    var from = -1;
+    arr.forEach(function (n, i) { if (n.id === id) from = i; });
+    if (from < 0 || targetIndex < 0 || targetIndex >= arr.length || from === targetIndex) return false;
+    var moved = arr.splice(from, 1)[0];
+    arr.splice(targetIndex, 0, moved);
+    arr.forEach(function (n, i) { n.order = arr.length - i; });
+    return true;
+  }
+
   var api = {
     KEYS: KEYS,
     CYCLE_LEN: CYCLE_LEN,
@@ -162,7 +315,12 @@
     breakAfter: breakAfter,
     remainingSeconds: remainingSeconds,
     formatClock: formatClock,
-    noteDraft: noteDraft
+    noteDraft: noteDraft,
+    normalizeNotes: normalizeNotes,
+    sortNotes: sortNotes,
+    moveNote: moveNote,
+    placeNote: placeNote,
+    mdToHtml: mdToHtml
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

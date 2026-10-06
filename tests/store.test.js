@@ -387,3 +387,119 @@ describe('noteDraft — yeni not taslağı', () => {
     assert.deepEqual(S.noteDraft('  Alışveriş  ', ' süt '), { title: 'Alışveriş', body: 'süt' });
   });
 });
+
+/* ── not sırası: normalizeNotes / sortNotes / moveNote ── */
+describe('not sırası — okumak sırayı değiştirmez', () => {
+  const note = (id, order, updatedAt, createdAt) => ({ id, order, title: id, body: '', createdAt, updatedAt });
+
+  it('normalizeNotes eksik order alanını updatedAt epochundan doldurur (geçişte görünüm korunur)', () => {
+    const a = { id: 'a', title: 'a', body: '', createdAt: '2026-10-01T09:00:00.000Z', updatedAt: '2026-10-02T09:00:00.000Z' };
+    const b = { id: 'b', title: 'b', body: '', createdAt: '2026-10-02T09:00:00.000Z', updatedAt: '2026-10-03T09:00:00.000Z' };
+    S.normalizeNotes([a, b]);
+    assert.equal(a.order, Date.parse('2026-10-02T09:00:00.000Z'));
+    assert.equal(b.order, Date.parse('2026-10-03T09:00:00.000Z'));
+  });
+
+  it('normalizeNotes mevcut order alanına dokunmaz (elle sıralama kalıcıdır)', () => {
+    const a = note('a', 5, '2026-10-09T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    S.normalizeNotes([a]);
+    assert.equal(a.order, 5);
+  });
+
+  it('sortNotes order alanına göre sıralar; updatedAt patlasa da sıra sabit kalır (regresyon)', () => {
+    const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    const c = note('c', 1, '2026-10-03T09:00:00.000Z', '2026-10-03T09:00:00.000Z');
+    const before = S.sortNotes([c, a, b]).map((n) => n.id);
+    // Notu okumak/güncellemek updatedAt'i patlatır — eski hata buradaydı.
+    c.updatedAt = '2027-01-01T00:00:00.000Z';
+    const after = S.sortNotes([c, a, b]).map((n) => n.id);
+    assert.deepEqual(before, ['a', 'b', 'c']);
+    assert.deepEqual(after, ['a', 'b', 'c']);
+  });
+
+  it('sortNotes order eşitliğinde createdAt ile kararlıdır', () => {
+    const a = note('a', 2, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    assert.deepEqual(S.sortNotes([a, b]).map((n) => n.id), ['b', 'a']);
+  });
+
+  it('moveNote komşuyla order takası yapar ve yeni sırayı üretir', () => {
+    const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    const c = note('c', 1, '2026-10-03T09:00:00.000Z', '2026-10-03T09:00:00.000Z');
+    const list = [c, a, b];
+    assert.equal(S.moveNote(list, 'a', 1), true); // a'yı aşağı
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['b', 'a', 'c']);
+    assert.equal(S.moveNote(list, 'a', -1), true); // geri yukarı
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['a', 'b', 'c']);
+  });
+
+  it('moveNote sınırlarda ve bilinmeyen kimlikte reddeder, düzene dokunmaz', () => {
+    const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    const list = [a, b];
+    assert.equal(S.moveNote(list, 'a', -1), false);
+    assert.equal(S.moveNote(list, 'b', 1), false);
+    assert.equal(S.moveNote(list, 'yok', 1), false);
+    assert.equal(a.order, 3);
+    assert.equal(b.order, 2);
+  });
+
+  it('yeni not (yüksek order) en üste yerleşir', () => {
+    const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const yeni = note('yeni', 4, '2026-10-05T09:00:00.000Z', '2026-10-05T09:00:00.000Z');
+    assert.deepEqual(S.sortNotes([a, yeni]).map((n) => n.id), ['yeni', 'a']);
+  });
+
+  it('moveNote yalnız order alanlarına dokunur (updatedAt karışmaz)', () => {
+    const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    const stamp = b.updatedAt;
+    S.moveNote([a, b], 'b', -1);
+    assert.equal(b.updatedAt, stamp);
+    assert.equal(b.order, 3);
+  });
+});
+
+/* ── placeNote — surukle-birak siralamasi ── */
+describe('placeNote — surukle-birak siralamasi', () => {
+  const note = (id, order, updatedAt, createdAt) => ({ id, order, title: id, body: '', createdAt, updatedAt });
+  const three = () => ([
+    note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z'),
+    note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z'),
+    note('c', 1, '2026-10-03T09:00:00.000Z', '2026-10-03T09:00:00.000Z')
+  ]);
+
+  it('notu hedef indekse tasirir ve order alanlarini yeniden dagitir', () => {
+    const list = three();
+    assert.equal(S.placeNote(list, 'c', 0), true);
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['c', 'a', 'b']);
+    assert.equal(S.placeNote(list, 'c', 2), true);
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['a', 'b', 'c']);
+  });
+
+  it('gecersiz hedefte, bilinmeyen kimlikte ve kendine birakista false — duzen degismez', () => {
+    const list = three();
+    assert.equal(S.placeNote(list, 'a', 0), false);
+    assert.equal(S.placeNote(list, 'a', -1), false);
+    assert.equal(S.placeNote(list, 'a', 3), false);
+    assert.equal(S.placeNote(list, 'yok', 1), false);
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['a', 'b', 'c']);
+  });
+
+  it('yalniz order alanlarina dokunur (updatedAt bagimsizligi surer)', () => {
+    const list = three();
+    const stamps = list.map((n) => n.updatedAt);
+    S.placeNote(list, 'c', 0);
+    assert.deepEqual(list.map((n) => n.updatedAt), stamps);
+  });
+
+  it('yeniden dagitim kalici: normalizeNotes/sortNotes yeni sirayi korur', () => {
+    const list = three();
+    S.placeNote(list, 'c', 0);
+    const copy = JSON.parse(JSON.stringify(list));
+    S.normalizeNotes(copy);
+    assert.deepEqual(S.sortNotes(copy).map((n) => n.id), ['c', 'a', 'b']);
+  });
+});

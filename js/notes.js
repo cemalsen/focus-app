@@ -5,8 +5,9 @@
   var S = window.FocusStore;
   var SAVE_DELAY_MS = 300;
 
-  var notes = [];       // {id,title,body,createdAt,updatedAt}
+  var notes = [];       // {id,title,body,createdAt,updatedAt,order}
   var selectedId = null;
+  var draggedId = null; // sürükle-bırak sırasında taşınan not kimliği
   var saveTimer = null;
   var els = {};
 
@@ -20,11 +21,36 @@
   }
 
   function sorted() {
-    return notes.slice().sort(function (a, b) { return b.updatedAt.localeCompare(a.updatedAt); });
+    return S.sortNotes(notes);
   }
 
   function get(id) {
     return notes.find(function (n) { return n.id === id; }) || null;
+  }
+
+  // Elle sıralama: ↑/↓ düğmeleri komşuyla order takası yapar; odağı düğmede tutar.
+  function moveBtn(n, dir, atEdge) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'note-move';
+    b.dataset.id = n.id;
+    b.dataset.dir = String(dir);
+    b.textContent = dir < 0 ? '↑' : '↓';
+    b.disabled = atEdge;
+    b.setAttribute('aria-label', (dir < 0 ? 'Yukarı taşı: ' : 'Aşağı taşı: ') + (n.title.trim() || 'Başlıksız not'));
+    b.addEventListener('click', function () {
+      if (!S.moveNote(notes, n.id, dir)) return;
+      persist();
+      renderList();
+      // Kenara ulaşınca ilgili yön düğmesi pasifleşir; disabled odaklanamaz,
+      // odağı etkin kardeş düğmeye (yoksa not satırına) taşı.
+      var wanted = els.list.querySelector('.note-move[data-id="' + n.id + '"][data-dir="' + dir + '"]');
+      var other = els.list.querySelector('.note-move[data-id="' + n.id + '"][data-dir="' + (-dir) + '"]');
+      var again = (wanted && !wanted.disabled) ? wanted : ((other && !other.disabled) ? other : null);
+      if (!again) again = els.list.querySelector('.note-item[data-id="' + n.id + '"]');
+      if (again) again.focus();
+    });
+    return b;
   }
 
   function renderList() {
@@ -32,8 +58,43 @@
     var items = sorted();
     els.empty.hidden = items.length > 0;
 
-    items.forEach(function (n) {
+    items.forEach(function (n, idx) {
       var li = document.createElement('li');
+      li.className = 'note-row';
+      // Sürükle-bırak ile sıralama: yalnız order alanları değişir (S.placeNote).
+      li.draggable = true;
+      li.addEventListener('dragstart', function (e) {
+        if (e.target.closest && e.target.closest('.note-move')) { e.preventDefault(); return; }
+        draggedId = n.id;
+        li.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', n.id);
+      });
+      li.addEventListener('dragover', function (e) {
+        if (!draggedId || draggedId === n.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        li.classList.add('drag-over');
+      });
+      li.addEventListener('dragleave', function () { li.classList.remove('drag-over'); });
+      li.addEventListener('drop', function (e) {
+        e.preventDefault();
+        li.classList.remove('drag-over');
+        if (!draggedId || draggedId === n.id) return;
+        if (S.placeNote(notes, draggedId, idx)) {
+          persist();
+          renderList();
+          var back = els.list.querySelector('.note-item[data-id="' + draggedId + '"]');
+          if (back) back.focus();
+        }
+      });
+      li.addEventListener('dragend', function () {
+        draggedId = null;
+        li.classList.remove('dragging');
+        Array.prototype.forEach.call(els.list.querySelectorAll('.drag-over'), function (el) {
+          el.classList.remove('drag-over');
+        });
+      });
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'note-item';
@@ -52,6 +113,8 @@
       btn.appendChild(date);
       btn.addEventListener('click', function () { select(n.id); });
       li.appendChild(btn);
+      li.appendChild(moveBtn(n, -1, idx === 0));
+      li.appendChild(moveBtn(n, 1, idx === items.length - 1));
       els.list.appendChild(li);
     });
   }
@@ -67,12 +130,18 @@
     btn.querySelector('.note-item-date').textContent = fmtDate(n.updatedAt);
   }
 
+  // Markdown önizleme: gövde metni güvenli HTML'e çevrilir (bkz. S.mdToHtml).
+  function renderPreview() {
+    els.preview.innerHTML = S.mdToHtml(els.body.value);
+  }
+
   function renderEditor() {
     var n = get(selectedId);
     els.editor.hidden = !n;
     if (!n) return;
     els.title.value = n.title;
     els.body.value = n.body;
+    renderPreview();
     els.meta.textContent = 'Güncellendi: ' + fmtDate(n.updatedAt);
   }
 
@@ -104,6 +173,7 @@
     n.updatedAt = new Date().toISOString();
     var ok = persist();
     refreshRow(n);
+    renderPreview();
     els.meta.textContent = ok ? 'Güncellendi: ' + fmtDate(n.updatedAt) : 'Kaydedilemedi!';
   }
 
@@ -121,7 +191,7 @@
     var draft = S.noteDraft(els.newTitle.value, els.newBody.value);
     if (!draft) return; // her iki alan da boş: not oluşturulmaz
     var now = new Date().toISOString();
-    var n = { id: S.uid(), title: draft.title, body: draft.body, createdAt: now, updatedAt: now };
+    var n = { id: S.uid(), title: draft.title, body: draft.body, createdAt: now, updatedAt: now, order: Date.now() };
     notes.push(n);
     persist();
     select(n.id);
@@ -152,12 +222,17 @@
       createBtn: document.getElementById('note-new'),
       deleteBtn: document.getElementById('note-delete'),
       dialog: document.getElementById('note-dialog'),
+      preview: document.getElementById('note-preview'),
       newTitle: document.getElementById('note-new-title'),
       newBody: document.getElementById('note-new-body')
     };
 
     notes = S.load(S.KEYS.notes, []);
     if (!Array.isArray(notes)) notes = [];
+    // Geçiş: order alanı olmayan eski kayıtlar tamamlanır ve bir kez geri yazılır.
+    var migrated = notes.some(function (n) { return typeof n.order !== 'number'; });
+    notes = S.normalizeNotes(notes);
+    if (migrated) persist();
     selectedId = sorted()[0] ? sorted()[0].id : null;
 
     els.createBtn.addEventListener('click', openCreateDialog);
@@ -167,7 +242,10 @@
       if (els.dialog.returnValue === 'ok') createFromDialog();
     });
     els.title.addEventListener('input', scheduleSave);
-    els.body.addEventListener('input', scheduleSave);
+    els.body.addEventListener('input', function () {
+      scheduleSave();
+      renderPreview();
+    });
     // Düzenleyiciyi kapatırken kaybetme: sekme değişiminde ve sayfadan çıkarken yaz.
     document.addEventListener('focusout', function (e) {
       if (els.editor.contains(e.target)) flushSave();
