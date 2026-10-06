@@ -28,28 +28,62 @@
     return notes.find(function (n) { return n.id === id; }) || null;
   }
 
-  // Elle sıralama: ↑/↓ düğmeleri komşuyla order takası yapar; odağı düğmede tutar.
-  function moveBtn(n, dir, atEdge) {
+  // Sıralama tutamacı: satırda tek düğme (⠿) — sürükleme göstergesi ve erişim
+  // yolu. Fare: satır düzeyinde HTML5 DnD (aşağıda). Klavye: tutamak odaklıyken
+  // ↑/↓ taşır. Dokunmatik/kalem: tutamaktan Pointer Events ile sürükleme.
+  function gripBtn(n) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'note-move';
+    b.className = 'note-grip';
     b.dataset.id = n.id;
-    b.dataset.dir = String(dir);
-    b.textContent = dir < 0 ? '↑' : '↓';
-    b.disabled = atEdge;
-    b.setAttribute('aria-label', (dir < 0 ? 'Yukarı taşı: ' : 'Aşağı taşı: ') + (n.title.trim() || 'Başlıksız not'));
-    b.addEventListener('click', function () {
-      if (!S.moveNote(notes, n.id, dir)) return;
-      persist();
-      renderList();
-      // Kenara ulaşınca ilgili yön düğmesi pasifleşir; disabled odaklanamaz,
-      // odağı etkin kardeş düğmeye (yoksa not satırına) taşı.
-      var wanted = els.list.querySelector('.note-move[data-id="' + n.id + '"][data-dir="' + dir + '"]');
-      var other = els.list.querySelector('.note-move[data-id="' + n.id + '"][data-dir="' + (-dir) + '"]');
-      var again = (wanted && !wanted.disabled) ? wanted : ((other && !other.disabled) ? other : null);
-      if (!again) again = els.list.querySelector('.note-item[data-id="' + n.id + '"]');
-      if (again) again.focus();
+    b.textContent = '⠿';
+    b.setAttribute('aria-label', 'Sıralama tutamacı: ' + (n.title.trim() || 'Başlıksız not') + ' — ok tuşlarıyla taşıyın, dokunmatikte sürükleyin');
+    function restore() {
+      var back = els.list.querySelector('.note-grip[data-id="' + n.id + '"]');
+      if (back) back.focus();
+    }
+    b.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      if (S.moveNote(notes, n.id, e.key === 'ArrowUp' ? -1 : 1)) {
+        persist();
+        renderList();
+        restore();
+      }
     });
+    var ptr = null;
+    b.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse') return; // fare için satır düzeyinde HTML5 DnD
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch (err) { /* sentetik olaylarda tutamaç yok */ }
+      ptr = { id: e.pointerId, over: null, row: b.closest('.note-row') };
+      if (ptr.row) ptr.row.classList.add('dragging');
+    });
+    b.addEventListener('pointermove', function (e) {
+      if (!ptr || ptr.id !== e.pointerId) return;
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      var over = el && el.closest ? el.closest('.note-row') : null;
+      if (over === ptr.row) over = null;
+      if (ptr.over && ptr.over !== over) ptr.over.classList.remove('drag-over');
+      ptr.over = over || null;
+      if (over) over.classList.add('drag-over');
+    });
+    function endPointer(e) {
+      if (!ptr || ptr.id !== e.pointerId) return;
+      var over = ptr.over;
+      if (ptr.row) ptr.row.classList.remove('dragging');
+      if (over) over.classList.remove('drag-over');
+      ptr = null;
+      if (!over) return;
+      var targetIdx = Array.prototype.indexOf.call(els.list.children, over);
+      if (targetIdx >= 0 && S.placeNote(notes, n.id, targetIdx)) {
+        persist();
+        renderList();
+        restore();
+      }
+    }
+    b.addEventListener('pointerup', endPointer);
+    b.addEventListener('pointercancel', endPointer);
     return b;
   }
 
@@ -64,7 +98,6 @@
       // Sürükle-bırak ile sıralama: yalnız order alanları değişir (S.placeNote).
       li.draggable = true;
       li.addEventListener('dragstart', function (e) {
-        if (e.target.closest && e.target.closest('.note-move')) { e.preventDefault(); return; }
         draggedId = n.id;
         li.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -113,8 +146,7 @@
       btn.appendChild(date);
       btn.addEventListener('click', function () { select(n.id); });
       li.appendChild(btn);
-      li.appendChild(moveBtn(n, -1, idx === 0));
-      li.appendChild(moveBtn(n, 1, idx === items.length - 1));
+      li.appendChild(gripBtn(n));
       els.list.appendChild(li);
     });
   }

@@ -163,17 +163,14 @@
     });
   }
 
-  // dir: -1 yukarı, +1 aşağı. Komşuyla order takası; sınırda false (sıra sabit).
+  // dir: -1 yukari, +1 asagi. Yalniz order alanlari degisir; esit order'li
+  // (miras) komsularda bile sessiz no-op yok — yerlestirme tabanli yeniden dagitim.
   function moveNote(list, id, dir) {
     var arr = sortNotes(list);
-    var i = -1;
-    arr.forEach(function (n, idx) { if (n.id === id) i = idx; });
-    var j = i + dir;
-    if (i < 0 || j < 0 || j >= arr.length) return false;
-    var tmp = arr[i].order;
-    arr[i].order = arr[j].order;
-    arr[j].order = tmp;
-    return true;
+    var from = -1;
+    arr.forEach(function (n, i) { if (n.id === id) from = i; });
+    if (from < 0) return false;
+    return placeNote(list, id, from + dir);
   }
 
   /* ── markdown alt kümesi → güvenli HTML ─────────────────── */
@@ -183,6 +180,7 @@
   // bağlantı şeması beyaz listelidir (https?, mailto) — javascript: HTML'e girmez.
   function mdEscape(s) {
     return String(s == null ? '' : s)
+      .replace(/\u0000/g, '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -208,7 +206,7 @@
       return '\u0000' + (links.length - 1) + '\u0000';
     });
     t = applyEmphasis(t);
-    return t.replace(/\u0000(\d+)\u0000/g, function (m, i) { return links[Number(i)]; });
+    return t.replace(/\u0000(\d+)\u0000/g, function (m, i) { var v = links[Number(i)]; return v == null ? m : v; });
   }
 
   function mdInline(escaped) {

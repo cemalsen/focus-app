@@ -139,4 +139,11 @@ describe('mdToHtml — güvenlik', () => {
     assert.equal(S.mdToHtml('`açık'), '<p>`açık</p>');
     assert.equal(S.mdToHtml(null), '');
   });
+  it('NUL baytları temizlenir; yer tutucu sahtekârlığı üretilemez (regresyon)', () => {
+    assert.equal(S.mdToHtml('\u00000\u0000'), '<p>0</p>');
+    assert.equal(
+      S.mdToHtml('[a](https://a.com) sonra \u00000\u0000'),
+      '<p><a href="https://a.com" rel="noopener noreferrer">a</a> sonra 0</p>'
+    );
+  });
 });

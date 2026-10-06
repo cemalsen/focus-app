@@ -424,7 +424,7 @@ describe('not sırası — okumak sırayı değiştirmez', () => {
     assert.deepEqual(S.sortNotes([a, b]).map((n) => n.id), ['b', 'a']);
   });
 
-  it('moveNote komşuyla order takası yapar ve yeni sırayı üretir', () => {
+  it('moveNote komşuyu yer değiştirterek yeni sırayı üretir', () => {
     const a = note('a', 3, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
     const b = note('b', 2, '2026-10-02T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
     const c = note('c', 1, '2026-10-03T09:00:00.000Z', '2026-10-03T09:00:00.000Z');
@@ -458,7 +458,7 @@ describe('not sırası — okumak sırayı değiştirmez', () => {
     const stamp = b.updatedAt;
     S.moveNote([a, b], 'b', -1);
     assert.equal(b.updatedAt, stamp);
-    assert.equal(b.order, 3);
+    assert.ok(b.order > a.order, 'order alanları ayırt edici olmalı');
   });
 });
 
@@ -501,5 +501,13 @@ describe('placeNote — surukle-birak siralamasi', () => {
     const copy = JSON.parse(JSON.stringify(list));
     S.normalizeNotes(copy);
     assert.deepEqual(S.sortNotes(copy).map((n) => n.id), ['c', 'a', 'b']);
+  });
+  it('eşit order alanlı (miras) komşularda da taşıma çalışır — sessiz no-op yok', () => {
+    const a = note('a', 2, '2026-10-01T09:00:00.000Z', '2026-10-01T09:00:00.000Z');
+    const b = note('b', 2, '2026-10-01T09:00:00.000Z', '2026-10-02T09:00:00.000Z');
+    const list = [a, b];
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['b', 'a']);
+    assert.equal(S.moveNote(list, 'a', -1), true);
+    assert.deepEqual(S.sortNotes(list).map((n) => n.id), ['a', 'b']);
   });
 });

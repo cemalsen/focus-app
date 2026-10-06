@@ -1,7 +1,7 @@
 'use strict';
 /* Not görünümü regresyonları (gerçek tarayıcı):
    1) bir notu açmak/okumak liste sırasını DEĞİŞTİRMEZ (sayfa tazelenince de),
-   2) ↑/↓ ile elle sıralama mümkün ve kalıcı,
+   2) elle sıralama tutamaktan: klavye ↑/↓ ve dokunmatik sürükleme; kalıcı,
    3) markdown önizleme biçimlendirir ve HTML girdisini kaçırır,
    4) dar genişlikte (375px) yatay taşma yoktur (uzun nowrap başlık kırışır),
    5) sürükle-bırak sıralaması kalıcıdır (order alanına yazar, updatedAt'e dokunmaz).
@@ -88,16 +88,37 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
     });
   });
 
-  it('↑/↓ düğmeleri elle sıralar ve sıra kalıcılaşır', { timeout: 60000 }, async (t) => {
+  it('tutamak ile elle sıralama: ↑/↓ ok tuşları taşır ve kalıcıdır', { timeout: 60000 }, async (t) => {
     await withPage(t, async (page) => {
       await seedNotes(page, baseUrl, SEED);
-      await page.click('.note-move[data-id="n3"][data-dir="-1"]');
+      await page.focus('.note-grip[data-id="n3"]');
+      await page.keyboard.press('ArrowUp');
       assert.deepEqual(await listOrder(page), ['n1', 'n3', 'n2']);
-      await page.click('.note-move[data-id="n3"][data-dir="-1"]');
+      await page.keyboard.press('ArrowUp');
       assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2']);
       await page.reload();
       await page.click('#tab-notes');
       assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2'], 'elle sıra kalıcı değil');
+    });
+  });
+
+  it('dokunmatik tutamak sürükleme sıralamayı değiştirir ve kalıcıdır', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await seedNotes(page, baseUrl, SEED);
+      await page.evaluate(() => {
+        const grip = document.querySelector('.note-grip[data-id="n3"]');
+        const target = document.querySelectorAll('.note-row')[0];
+        const g = grip.getBoundingClientRect();
+        const tt = target.getBoundingClientRect();
+        const at = (x, y) => ({ bubbles: true, pointerId: 7, pointerType: 'touch', clientX: x, clientY: y });
+        grip.dispatchEvent(new PointerEvent('pointerdown', at(g.x + 5, g.y + 5)));
+        grip.dispatchEvent(new PointerEvent('pointermove', at(tt.x + tt.width / 2, tt.y + tt.height / 2)));
+        grip.dispatchEvent(new PointerEvent('pointerup', at(tt.x + tt.width / 2, tt.y + tt.height / 2)));
+      });
+      assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2'], 'dokunmatik sürükleme sırayı değiştirmedi');
+      await page.reload();
+      await page.click('#tab-notes');
+      assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2'], 'dokunmatik sıra kalıcı değil');
     });
   });
 
@@ -131,6 +152,8 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
       await page.reload();
       await page.click('#tab-notes');
       assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2'], 'sürükle-bırak sıralaması kalıcı değil');
+      const stamps = await page.evaluate(() => JSON.parse(localStorage.getItem('focus-app:notes')).map((n) => n.id + '=' + n.updatedAt));
+      assert.ok(stamps.includes('n3=2026-10-03T09:00:00.000Z'), "sürükle-bırak updatedAt'e dokunmamalı: " + stamps.join(','));
     });
   });
 });
