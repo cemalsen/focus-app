@@ -41,7 +41,9 @@ describe('not listesi — yutulan tıklama regresyonu', () => {
     try {
       await seedNotes(page, baseUrl, SEED);
       await page.click('.note-item[data-id="n1"]');
-      assert.equal(await page.inputValue('#note-title'), 'Eski not', 'ön koşul: n1 düzenleyicide açık');
+      // Not önce salt-okur önizlemeyle açılır; düzenleme "Düzenle" ile başlar.
+      await page.click('#note-edit');
+      assert.equal(await page.inputValue('#note-title'), 'Eski not', 'ön koşul: n1 düzenleme formunda açık');
 
       // Senaryo: editörde yaz → otomatik kayıt (300 ms) beklemeden HEMEN başka nota tıkla.
       await page.click('#note-title');

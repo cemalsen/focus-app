@@ -315,6 +315,19 @@ input[type="number"] { width: 6ch; }
 .note-item .note-item-date { color: var(--muted); display: block; font-size: var(--text-xs); }
 
 .note-editor { display: flex; flex-direction: column; gap: var(--space-3); }
+.note-editor[hidden] { display: none; } /* display:flex, UA [hidden] kuralını ezer */
+/* Görünüm modu başlığı: form açılınca gizlenir, düzenleme formundaki
+   #note-title girişi onun yerini alır (aynı tipografi). */
+.note-view-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.note-form { display: flex; flex-direction: column; gap: var(--space-3); }
+/* yazar-stylesheet display:flex, UA [hidden]{display:none} ezer — gizlemeyi geri ver */
+.note-form[hidden] { display: none; }
 .note-title {
   font-family: var(--font-display);
   font-size: var(--text-2xl);

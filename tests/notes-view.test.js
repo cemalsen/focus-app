@@ -143,6 +143,40 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
       assert.match(html, /&lt;script&gt;/);
     });
   });
+  it('not önce salt-okur önizlemeyle açılır; “Düzenle” mevcut formu açar, “Bitti” kaydeder ve önizlemeye döner', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await seedNotes(page, baseUrl, [{
+        id: 'v1',
+        title: 'V',
+        body: '# Selam',
+        createdAt: '2026-10-01T09:00:00.000Z',
+        updatedAt: '2026-10-01T09:00:00.000Z',
+        order: 1
+      }]);
+      await page.click('.note-item[data-id="v1"]');
+      // Görünüm modu: form gizli, önizleme birincil içerik (aria-hidden="false").
+      assert.equal(await page.isVisible('#note-form'), false, 'form seçimle hemen açıldı');
+      assert.equal(await page.isVisible('#note-edit'), true, 'Düzenle düğmesi görünmüyor');
+      assert.equal(await page.$eval('#note-preview-wrap', (el) => el.getAttribute('aria-hidden')), 'false');
+      assert.match(await page.$eval('#note-preview', (el) => el.innerHTML), /<h1>Selam<\/h1>/);
+      // Düzenle: mevcut form ortaya çıkar, önizleme aynaya döner.
+      await page.click('#note-edit');
+      assert.equal(await page.isVisible('#note-form'), true, 'Düzenle formu açmadı');
+      assert.equal(await page.inputValue('#note-title'), 'V');
+      await page.fill('#note-body', '# Selam\n\nyeni satır');
+      await page.fill('#note-title', 'W');
+      // Bitti: kaydet ve önizlemeye dön.
+      await page.click('#note-done');
+      assert.equal(await page.isVisible('#note-form'), false, 'Bitti önizlemeye döndürmedi');
+      // Regresyon: başlık değişince görünüm başlığı bayat kalmasın ("V" değil "W").
+      assert.equal(await page.$eval('#note-view-title', (el) => el.textContent), 'W');
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('focus-app:notes'))[0]);
+      assert.equal(stored.title, 'W', 'Bitti yeni başlığı kaydetmedi');
+      assert.equal(stored.body, '# Selam\n\nyeni satır', 'Bitti yazılanı kaydetmedi');
+      assert.match(await page.$eval('#note-preview', (el) => el.innerHTML), /yeni satır/);
+    });
+  });
+
   it('sürükle-bırak sıralamayı değiştirir ve kalıcıdır (order alanına yazar)', { timeout: 60000 }, async (t) => {
     await withPage(t, async (page) => {
       await seedNotes(page, baseUrl, SEED);

@@ -7,6 +7,7 @@
 
   var notes = [];       // {id,title,body,createdAt,updatedAt,order}
   var selectedId = null;
+  var editing = false;  // yanlış: önizleme görünümü (salt-okur), doğru: mevcut düzenleme formu
   var draggedId = null; // sürükle-bırak sırasında taşınan not kimliği
   var saveTimer = null;
   var els = {};
@@ -167,13 +168,27 @@
     els.preview.innerHTML = S.mdToHtml(els.body.value);
   }
 
+  // Görünüm/düzenleme modu: varsayılan salt-okur önizleme; "Düzenle" mevcut
+  // formu ortaya çıkarır, "Bitti" flushSave edip önizlemeye döner.
+  function renderView() {
+    els.form.hidden = !editing;
+    els.viewTitle.hidden = editing;
+    els.editBtn.hidden = editing;
+    els.doneBtn.hidden = !editing;
+    // Önizleme düzenleme sırasında textarea'nın aynasıdır (gizli); görünümde
+    // birincil içeriktir.
+    els.previewWrap.setAttribute('aria-hidden', editing ? 'true' : 'false');
+  }
+
   function renderEditor() {
     var n = get(selectedId);
     els.editor.hidden = !n;
     if (!n) return;
     els.title.value = n.title;
     els.body.value = n.body;
+    els.viewTitle.textContent = n.title.trim() || 'Başlıksız not';
     renderPreview();
+    renderView();
     els.meta.textContent = 'Güncellendi: ' + fmtDate(n.updatedAt);
   }
 
@@ -181,6 +196,7 @@
     var hadListFocus = els.list.contains(document.activeElement);
     flushSave();
     selectedId = id;
+    editing = false; // seçim değişince salt-okur önizlemeye dön
     renderList();
     renderEditor();
     // Liste düğmesi yeniden kuruldu; klavye odağını geri ver.
@@ -205,6 +221,9 @@
     n.updatedAt = new Date().toISOString();
     var ok = persist();
     refreshRow(n);
+    // Başlık değiştiyse görünüm modundeki başlık da tazelenmeli; yoksa "Bitti"
+    // sonrası <h3> eski başlıkta kalır (renderView yalnız görünürlük değiştirir).
+    els.viewTitle.textContent = n.title.trim() || 'Başlıksız not';
     renderPreview();
     els.meta.textContent = ok ? 'Güncellendi: ' + fmtDate(n.updatedAt) : 'Kaydedilemedi!';
   }
@@ -227,6 +246,9 @@
     notes.push(n);
     persist();
     select(n.id);
+    // Yeni not hemen yazılmak ister: biçimlendirilmiş önizleme yerine formu aç.
+    editing = true;
+    renderView();
     els.title.focus();
   }
 
@@ -237,6 +259,7 @@
     notes = notes.filter(function (x) { return x.id !== n.id; });
     persist();
     selectedId = sorted()[0] ? sorted()[0].id : null;
+    editing = false; // kalan sonraki not salt-okur önizlemeyle açılır
     renderList();
     renderEditor();
     // Silinen notun düğmesi yok oldu; odağı güvenli yere taşı.
@@ -255,6 +278,11 @@
       deleteBtn: document.getElementById('note-delete'),
       dialog: document.getElementById('note-dialog'),
       preview: document.getElementById('note-preview'),
+      previewWrap: document.getElementById('note-preview-wrap'),
+      form: document.getElementById('note-form'),
+      viewTitle: document.getElementById('note-view-title'),
+      editBtn: document.getElementById('note-edit'),
+      doneBtn: document.getElementById('note-done'),
       newTitle: document.getElementById('note-new-title'),
       newBody: document.getElementById('note-new-body')
     };
@@ -277,6 +305,18 @@
     els.body.addEventListener('input', function () {
       scheduleSave();
       renderPreview();
+    });
+    // Görünüm ↔ düzenleme: "Düzenle" mevcut formu açar; "Bitti" yazar ve önizlemeye döner.
+    els.editBtn.addEventListener('click', function () {
+      editing = true;
+      renderView();
+      els.title.focus();
+    });
+    els.doneBtn.addEventListener('click', function () {
+      flushSave();
+      editing = false;
+      renderView();
+      els.editBtn.focus();
     });
     // Düzenleyiciyi kapatırken kaybetme: sekme değişiminde ve sayfadan çıkarken yaz.
     document.addEventListener('focusout', function (e) {

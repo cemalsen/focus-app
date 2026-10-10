@@ -72,17 +72,22 @@
           <p class="empty" id="note-empty">Henüz not yok. “Yeni not” ile başlayın.</p>
         </aside>
         <article class="note-editor" id="note-editor" hidden>
-          <label class="visually-hidden" for="note-title">Not başlığı</label>
-          <input type="text" id="note-title" class="note-title" placeholder="Başlıksız not" autocomplete="off">
-          <label class="visually-hidden" for="note-body">Not içeriği</label>
-          <textarea id="note-body" class="note-body" placeholder="Buraya yazın…"></textarea>
-          <div class="note-preview-wrap" aria-hidden="true">
+          <h3 class="note-view-title" id="note-view-title"></h3>
+          <div class="note-form" id="note-form" hidden>
+            <label class="visually-hidden" for="note-title">Not başlığı</label>
+            <input type="text" id="note-title" class="note-title" placeholder="Başlıksız not" autocomplete="off">
+            <label class="visually-hidden" for="note-body">Not içeriği</label>
+            <textarea id="note-body" class="note-body" placeholder="Buraya yazın…"></textarea>
+          </div>
+          <div class="note-preview-wrap" id="note-preview-wrap" aria-hidden="true">
             <p class="note-preview-label muted small">Önizleme (markdown)</p>
             <div class="note-preview" id="note-preview"></div>
           </div>
           <div class="row spread">
             <p class="muted small" id="note-meta"></p>
             <div class="row">
+              <button class="btn" id="note-done" type="button" hidden>Bitti</button>
+              <button class="btn primary" id="note-edit" type="button">Düzenle</button>
               <button class="btn danger" id="note-delete" type="button">Sil</button>
             </div>
           </div>
