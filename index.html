@@ -28,11 +28,6 @@
     <section class="panel" id="panel-pomodoro" role="tabpanel" aria-labelledby="tab-pomodoro" tabindex="0">
       <h2 class="panel-title">Pomodoro</h2>
       <div class="pomo-stage">
-        <div class="pomo-phase-picker" role="group" aria-label="Faz seçimi">
-          <button class="btn pomo-phase-btn" id="pomo-phase-focus" type="button" aria-pressed="true">Odak</button>
-          <button class="btn pomo-phase-btn" id="pomo-phase-short" type="button" aria-pressed="false">Kısa mola</button>
-          <button class="btn pomo-phase-btn" id="pomo-phase-long" type="button" aria-pressed="false">Uzun mola</button>
-        </div>
         <p class="pomo-phase" id="pomo-phase">Odak</p>
         <p class="pomo-time" id="pomo-time" role="timer">25:00</p>
         <div class="bar" aria-hidden="true"><i id="pomo-bar"></i></div>
@@ -40,6 +35,11 @@
         <div class="row">
           <button class="btn primary" id="pomo-start" type="button">Başlat</button>
           <button class="btn" id="pomo-reset" type="button">Sıfırla</button>
+        </div>
+        <div class="pomo-phase-picker" role="group" aria-label="Faz seçimi">
+          <button class="btn pomo-phase-btn" id="pomo-phase-focus" type="button" aria-pressed="true">Odak</button>
+          <button class="btn pomo-phase-btn" id="pomo-phase-short" type="button" aria-pressed="false">Kısa mola</button>
+          <button class="btn pomo-phase-btn" id="pomo-phase-long" type="button" aria-pressed="false">Uzun mola</button>
         </div>
         <p class="pomo-status muted" id="pomo-status" aria-live="polite"></p>
       </div>
