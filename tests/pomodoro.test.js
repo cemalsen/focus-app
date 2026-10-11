@@ -491,3 +491,125 @@ describe('elle faz geçişi — otomatik başlama yok', () => {
     }
   });
 });
+
+/* ── elle faz seçimi: Odak / Kısa mola / Uzun mola düğmeleri ── */
+describe('faz seçimi — kullanıcı fazı elle değiştirebilir', () => {
+  const pressed = (app, phase) =>
+    app.elements['pomo-phase-' + phase].attributes['aria-pressed'];
+
+  it('açılışta seçici güncel fazı işaret eder (varsayılan: Odak)', () => {
+    const app = boot();
+    try {
+      assert.equal(pressed(app, 'focus'), 'true');
+      assert.equal(pressed(app, 'short'), 'false');
+      assert.equal(pressed(app, 'long'), 'false');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('duraklatılmış sayaçta faz değişir: tam süre yüklenir, kalıcılaşır, duyurulur', () => {
+    const app = boot();
+    try {
+      app.elements['pomo-phase-short'].click();
+
+      assert.equal(app.elements['pomo-phase'].textContent, 'Kısa mola');
+      assert.equal(app.elements['pomo-time'].textContent, '05:00');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+      assert.equal(app.elements['pomo-status'].textContent, 'Kısa mola seçildi. Başlat ile başlatın.');
+      assert.equal(pressed(app, 'focus'), 'false');
+      assert.equal(pressed(app, 'short'), 'true');
+
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.phase, 'short');
+      assert.equal(st.remainingMs, 5 * 60000);
+      assert.equal(st.running, false);
+      assert.equal(st.endAt, null);
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('çalışan odak bölünür: sayaç durur, döngü sayacı korunur, zincir işaretlenmez', () => {
+    const now = 1790860800000;
+    const saved = Object.assign(runningFocus(now), { focusInCycle: 2 });
+    const app = boot({ now, saved });
+    try {
+      app.tap();
+      app.elements['pomo-phase-long'].click();
+
+      assert.equal(app.elements['pomo-phase'].textContent, 'Uzun mola');
+      assert.equal(app.elements['pomo-time'].textContent, '15:00');
+      assert.equal(app.elements['pomo-cycle'].textContent, 'Döngü 3/4', 'elle seçim odak saymaz');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.running, false, 'çalışan sayaç faz seçimiyle durur');
+      assert.equal(st.endAt, null);
+      assert.equal(st.phase, 'long');
+      assert.equal(st.remainingMs, 15 * 60000);
+      assert.equal(st.focusInCycle, 2);
+      assert.equal(app.dispatched.length, 0, 'yarım kalan odak zinciri işaretlemez');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('aynı faz seçimi no-op: çalışan sayaç da duraklatılmış ilerleme de bozulmaz', () => {
+    const now = 1790860800000;
+    const app = boot({ now, saved: runningFocus(now) });
+    try {
+      app.elements['pomo-phase-focus'].click();
+
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.running, true);
+      assert.equal(st.endAt, now + 1000);
+      assert.equal(app.elements['pomo-status'].textContent, '');
+    } finally {
+      app.cleanup();
+    }
+
+    // Duraklatılmış ilerleme de korunur: yarılanmış odak tam süreye dönmez.
+    const paused = boot({
+      now,
+      saved: {
+        settings: { focusMin: 25, shortMin: 5, longMin: 15 },
+        phase: 'focus', focusInCycle: 0, running: false,
+        remainingMs: 60000, endAt: null
+      }
+    });
+    try {
+      paused.elements['pomo-phase-focus'].click();
+      assert.equal(paused.elements['pomo-time'].textContent, '01:00', 'kalan süre sıfırlanmaz');
+      assert.equal(S.load(S.KEYS.pomodoro, null).remainingMs, 60000);
+      assert.equal(paused.elements['pomo-status'].textContent, '');
+    } finally {
+      paused.cleanup();
+    }
+  });
+
+  it('seçilen faz Başlat ile tam süresiyle çalışır; bitince odak yine bekler', () => {
+    const now = 1790860800000;
+    const app = boot({ now });
+    try {
+      app.tap();
+      app.elements['pomo-phase-short'].click();
+      app.pressStart();
+
+      assert.equal(app.elements['pomo-start'].textContent, 'Duraklat');
+      const running = S.load(S.KEYS.pomodoro, null);
+      assert.equal(running.running, true);
+      assert.equal(running.endAt, now + 5 * 60000, 'mola tam süresiyle başlar');
+
+      app.clock.now = now + 5 * 60000 + 250;
+      app.tick();                // mola biter → odak hazır, bekler
+
+      assert.equal(app.elements['pomo-phase'].textContent, 'Odak');
+      assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
+      assert.equal(pressed(app, 'focus'), 'true', 'seçici otomatik geçişi de yansıtır');
+      assert.equal(app.dispatched.length, 0, 'mola bitiş zinciri işaretlemez');
+    } finally {
+      app.cleanup();
+    }
+  });
+});

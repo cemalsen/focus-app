@@ -74,6 +74,7 @@
   }
 
   var PHASE_LABEL = { focus: 'Odak', short: 'Kısa mola', long: 'Uzun mola' };
+  var PHASES = ['focus', 'short', 'long'];
 
   function render() {
     var totalMs = S.phaseMinutes(state.phase, state.settings) * 60000;
@@ -90,6 +91,10 @@
     els.bar.style.width = (totalMs > 0 ? (100 * (totalMs - remainingMs)) / totalMs : 0) + '%';
     els.start.textContent = state.running ? 'Duraklat' : 'Başlat';
     els.start.setAttribute('aria-label', state.running ? 'Sayacı duraklat' : 'Sayacı başlat');
+    // Faz seçici butonları güncel fazı yansıtır (vurgu CSS'e değil duruma bağlı).
+    PHASES.forEach(function (p) {
+      els.phaseButtons[p].setAttribute('aria-pressed', p === state.phase ? 'true' : 'false');
+    });
 
     document.title = state.running
       ? S.formatClock(secs) + ' · ' + PHASE_LABEL[state.phase] + ' — Odak'
@@ -208,6 +213,22 @@
     render();
   }
 
+  /* Kullanıcı fazı elle seçer: çalışan sayaç durur, seçilen faz tam süresiyle
+     "Başlat"ı bekler (elle faz geçişi sözleşesiyle aynı). Döngü sayacı korunur —
+     elle seçim fazı tamamlanmış saymaz; zincir yalnız odak *tamamlandığında*
+     işaretlenir. Aynı faz seçimi sayacı bozmaz (no-op). */
+  function selectPhase(phase) {
+    if (phase !== 'focus' && phase !== 'short' && phase !== 'long') return;
+    if (phase === state.phase) return;
+    state.running = false;
+    state.endAt = null;
+    state.phase = phase;
+    state.remainingMs = S.phaseMinutes(phase, state.settings) * 60000;
+    announce(PHASE_LABEL[phase] + ' seçildi. Başlat ile başlatın.');
+    persist();
+    render();
+  }
+
   function readSettings() {
     var beforeMs = S.phaseMinutes(state.phase, state.settings) * 60000;
     state.settings.focusMin = S.clampMinutes(els.focusMin.value, 1, 180, state.settings.focusMin);
@@ -235,6 +256,11 @@
       start: document.getElementById('pomo-start'),
       reset: document.getElementById('pomo-reset'),
       status: document.getElementById('pomo-status'),
+      phaseButtons: {
+        focus: document.getElementById('pomo-phase-focus'),
+        short: document.getElementById('pomo-phase-short'),
+        long: document.getElementById('pomo-phase-long')
+      },
       focusMin: document.getElementById('pomo-focus-min'),
       shortMin: document.getElementById('pomo-short-min'),
       longMin: document.getElementById('pomo-long-min'),
@@ -252,6 +278,9 @@
       state.running ? pause() : start();
     });
     els.reset.addEventListener('click', reset);
+    PHASES.forEach(function (p) {
+      els.phaseButtons[p].addEventListener('click', function () { selectPhase(p); });
+    });
     [els.focusMin, els.shortMin, els.longMin].forEach(function (input) {
       input.addEventListener('change', readSettings);
     });

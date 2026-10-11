@@ -237,6 +237,19 @@ input[type="number"] { width: 6ch; }
   text-align: center;
 }
 
+.pomo-phase-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+.pomo-phase-btn[aria-pressed="true"] {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+  font-weight: var(--weight-medium);
+}
+
 .pomo-phase {
   color: var(--muted);
   font-size: var(--text-sm);
