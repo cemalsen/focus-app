@@ -457,6 +457,36 @@ input[type="number"] { width: 6ch; }
 /* ── yapılacaklar ───────────────────────────────────────── */
 #todo-form { margin-bottom: var(--space-4); }
 
+/* Çoklu liste şeridi — listeler maddelerin üstünde sekme olarak gösterilir.
+   Seçili sekme .pomo-phase-btn gibi fg/bg ters çevirir (tek tutarlı seçim dili). */
+.todo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.todo-tab {
+  appearance: none;
+  background: transparent;
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: var(--hit);
+  padding: var(--space-1) var(--space-3);
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard);
+}
+.todo-tab:hover { color: var(--fg); }
+.todo-tab[aria-selected="true"] {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+  font-weight: var(--weight-medium);
+}
+
 .todo-list {
   list-style: none;
   margin: 0;

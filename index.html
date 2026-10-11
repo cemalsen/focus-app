@@ -119,25 +119,45 @@
 
     <!-- ── Yapılacaklar ─────────────────────────── -->
     <section class="panel" id="panel-todos" role="tabpanel" aria-labelledby="tab-todos" tabindex="0" hidden>
-      <h2 class="panel-title">Yapılacaklar</h2>
-      <form class="row" id="todo-form">
-        <label class="visually-hidden" for="todo-input">Yapılacak madde</label>
-        <input type="text" id="todo-input" class="grow" placeholder="Yapılacak bir şey ekleyin…" autocomplete="off" required>
-        <button class="btn primary" type="submit">Ekle</button>
-      </form>
-      <p class="empty" id="todo-empty">Liste boş.</p>
-      <ul class="todo-list" id="todo-list"></ul>
-      <div class="row spread todo-foot">
-        <p class="muted small" id="todo-count">0 madde</p>
-        <div class="row">
-          <div class="segmented" role="group" aria-label="Filtre">
-            <button class="seg-btn" id="filter-all" type="button" aria-pressed="true">Tümü</button>
-            <button class="seg-btn" id="filter-active" type="button" aria-pressed="false">Aktif</button>
-            <button class="seg-btn" id="filter-done" type="button" aria-pressed="false">Tamamlanan</button>
+      <div class="row spread">
+        <h2 class="panel-title">Yapılacaklar</h2>
+        <button class="btn" id="todo-list-new" type="button">Yeni liste</button>
+      </div>
+      <div class="todo-tabs" role="tablist" aria-label="Yapılacaklar listeleri" id="todo-tabs"></div>
+      <div class="todo-list-panel" id="todo-list-panel" role="tabpanel" tabindex="0">
+        <form class="row" id="todo-form">
+          <label class="visually-hidden" for="todo-input">Yapılacak madde</label>
+          <input type="text" id="todo-input" class="grow" placeholder="Yapılacak bir şey ekleyin…" autocomplete="off" required>
+          <button class="btn primary" type="submit">Ekle</button>
+        </form>
+        <p class="empty" id="todo-empty">Liste boş.</p>
+        <ul class="todo-list" id="todo-list"></ul>
+        <div class="row spread wrap todo-foot">
+          <p class="muted small" id="todo-count">0 madde</p>
+          <div class="row wrap">
+            <div class="segmented" role="group" aria-label="Filtre">
+              <button class="seg-btn" id="filter-all" type="button" aria-pressed="true">Tümü</button>
+              <button class="seg-btn" id="filter-active" type="button" aria-pressed="false">Aktif</button>
+              <button class="seg-btn" id="filter-done" type="button" aria-pressed="false">Tamamlanan</button>
+            </div>
+            <button class="btn ghost" id="todos-clear" type="button">Tamamlananları temizle</button>
           </div>
-          <button class="btn ghost" id="todos-clear" type="button">Tamamlananları temizle</button>
         </div>
       </div>
+
+      <dialog class="note-dialog" id="todo-list-dialog" aria-labelledby="todo-list-dialog-heading">
+        <form method="dialog" class="note-dialog-form">
+          <h2 class="panel-title" id="todo-list-dialog-heading">Yeni liste</h2>
+          <label class="field">Liste adı
+            <input type="text" id="todo-list-name" placeholder="Örn. Alışveriş" autocomplete="off" maxlength="60">
+          </label>
+          <p class="muted small">Ad boşsa liste oluşturulmaz.</p>
+          <div class="row note-dialog-actions">
+            <button class="btn primary" type="submit" value="ok">Tamam</button>
+            <button class="btn" type="submit" value="cancel">İptal</button>
+          </div>
+        </form>
+      </dialog>
     </section>
 
     <!-- ── Zincir ───────────────────────────────── -->

@@ -36,7 +36,9 @@ Her şey tarayıcının `localStorage` alanında tutulur; sunucu yoktur.
 | Anahtar | İçerik |
 |---|---|
 | `focus-app:notes` | notlar |
-| `focus-app:todos` | yapılacaklar |
+| `focus-app:todos` | yapılacaklar maddeleri (`listId` ile listesine bağlı) |
+| `focus-app:todo-lists` | yapılacaklar listeleri — `[{id,name}]`, şerit sırası |
+| `focus-app:todo-active` | yapılacaklarda seçili sekme (list id) |
 | `focus-app:chain` | işaretli günler |
 | `focus-app:pomodoro` | pomodoro durumu ve süre ayarları |
 | `focus-app:theme` | tema seçimi |

@@ -350,6 +350,8 @@ describe('sözleşme sabitleri (KEYS / CYCLE_LEN)', () => {
     assert.deepEqual(S.KEYS, {
       notes: 'focus-app:notes',
       todos: 'focus-app:todos',
+      todoLists: 'focus-app:todo-lists',
+      todoActive: 'focus-app:todo-active',
       chain: 'focus-app:chain',
       pomodoro: 'focus-app:pomodoro',
       theme: 'focus-app:theme'
@@ -363,6 +365,13 @@ describe('sözleşme sabitleri (KEYS / CYCLE_LEN)', () => {
 
   it('CYCLE_LEN 4tür (pomodoro mola mantığı bu sabite bağlı)', () => {
     assert.equal(S.CYCLE_LEN, 4);
+  });
+
+  it('liste id.si prototip adıyla çakışsa da düşmez (constructor/toString tuzağı)', () => {
+    const r = S.todoListsInit([{ id: 'constructor', name: 'A' }], [], 'Varsayılan');
+    assert.equal(r.lists.length, 1);
+    assert.equal(r.lists[0].id, 'constructor');
+    assert.equal(r.changed, false); // onarım olmadı, gereksiz kalıcı yazım yok
   });
 });
 
@@ -524,5 +533,61 @@ describe('yardımcılar todo-şekli nesnelerle (updatedAt yok)', () => {
     assert.deepEqual(S.sortNotes([t1, t2]).map((n) => n.id), ['t1', 't2']);
     assert.equal(t1.createdAt, '2026-10-01T09:00:00.000Z', 'createdAt de değişmemeli');
     assert.equal(t1.done, false);
+  });
+});
+
+/* ── yapılacaklar listeleri: listNameDraft / todoListsInit ── */
+describe('listNameDraft — yeni liste adı taslağı', () => {
+  it('boşluklar kırpılır; boş/null ad null — boş liste kurulmaz', () => {
+    assert.equal(S.listNameDraft('  Alışveriş  '), 'Alışveriş');
+    assert.equal(S.listNameDraft('   '), null);
+    assert.equal(S.listNameDraft(null), null);
+    assert.equal(S.listNameDraft(undefined), null);
+  });
+});
+
+describe('todoListsInit — çok listeli geçiş', () => {
+  it('liste yoksa varsayılan kurulur; listId’siz maddeler ona bağlanır', () => {
+    const r = S.todoListsInit([], [{ id: 't1' }, { id: 't2' }], 'Genel');
+    assert.equal(r.lists.length, 1);
+    assert.equal(r.lists[0].name, 'Genel');
+    assert.ok(r.lists[0].id, 'id üretilmeli');
+    assert.equal(r.todos[0].listId, r.lists[0].id);
+    assert.equal(r.todos[1].listId, r.lists[0].id);
+    assert.equal(r.changed, true);
+  });
+
+  it('geçerli listeler korunur; eksik/öksüz listId ilk listeye taşınır, sağlam bağ bozulmaz', () => {
+    const lists = [{ id: 'a', name: 'İş' }, { id: 'b', name: 'Alışveriş' }];
+    const todos = [{ id: 't1' }, { id: 't2', listId: 'b' }, { id: 't3', listId: 'silinmis' }];
+    const r = S.todoListsInit(lists, todos, 'Genel');
+    assert.deepEqual(r.lists.map((l) => l.name), ['İş', 'Alışveriş']);
+    assert.equal(r.todos[0].listId, 'a');
+    assert.equal(r.todos[1].listId, 'b');
+    assert.equal(r.todos[2].listId, 'a');
+    assert.equal(r.changed, true);
+  });
+
+  it('sağlam veride changed=false — gereksiz kalıcı yazım yok', () => {
+    const lists = [{ id: 'a', name: 'İş' }, { id: 'b', name: 'Alışveriş' }];
+    const todos = [{ id: 't1', listId: 'a' }, { id: 't2', listId: 'b' }];
+    const r = S.todoListsInit(lists, todos, 'Genel');
+    assert.equal(r.changed, false);
+    assert.deepEqual(r.lists.map((l) => l.id), ['a', 'b']);
+  });
+
+  it('bozuk liste kayıtları elenir (adsız/id’siz/null/yinelenen id); ad kırpılır', () => {
+    const lists = [{ id: 'a', name: '  İş  ' }, { name: 'adsız' }, null, { id: '', name: 'X' }, { id: 'a', name: 'dup' }];
+    const r = S.todoListsInit(lists, [], 'Genel');
+    assert.deepEqual(r.lists, [{ id: 'a', name: 'İş' }]);
+    assert.equal(r.changed, true);
+  });
+
+  it('array olmayan girdiler sağlam geçişten geçer: tek varsayılan liste, boş todos', () => {
+    const r = S.todoListsInit('bozuk', 'bozuk', 'Genel');
+    assert.equal(r.lists.length, 1);
+    assert.equal(r.lists[0].name, 'Genel');
+    assert.deepEqual(r.todos, []);
+    assert.equal(r.changed, true);
   });
 });

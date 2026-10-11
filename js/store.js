@@ -7,6 +7,8 @@
   var KEYS = {
     notes: 'focus-app:notes',
     todos: 'focus-app:todos',
+    todoLists: 'focus-app:todo-lists',
+    todoActive: 'focus-app:todo-active',
     chain: 'focus-app:chain',
     pomodoro: 'focus-app:pomodoro',
     theme: 'focus-app:theme'
@@ -293,6 +295,41 @@
     return true;
   }
 
+  /* ── yapılacaklar listeleri: çoklu liste modeli + geçiş ────────
+     lists: [{id,name}] — sekme şeridi; görüntüleme sırası dizi sırasıdır
+     (liste sıralama aracı bilinçli olarak kapsam dışı). Her madde `listId`
+     ile bir listeye bağlıdır; listesiz (eski) maddeler ilk yüklemede
+     varsayılan ada bağlanır. `changed` yalnız gerçek onarım/üretim olduysa
+     true — gereksiz kalıcı yazım yapılmaz. */
+  // "Yeni liste" diyalog ad taslağı: boş/boşluk ad null — boş liste kurulmaz.
+  function listNameDraft(name) {
+    var t = String(name == null ? '' : name).trim();
+    return t || null;
+  }
+
+  function todoListsInit(lists, todos, defaultName) {
+    var raw = Array.isArray(lists) ? lists : [];
+    var seen = Object.create(null); // prototip adlı id'ler (constructor vb.) seen sanılmasın
+    var clean = [];
+    raw.forEach(function (l) {
+      if (!l || typeof l.id !== 'string' || !l.id || typeof l.name !== 'string' || !l.name.trim() || seen[l.id]) return;
+      seen[l.id] = true;
+      clean.push({ id: l.id, name: l.name.trim() });
+    });
+    var changed = clean.length !== raw.length;
+    var items = Array.isArray(todos) ? todos : [];
+    if (!clean.length) { // ilk kurulum ya tümüyle bozuk kayıt: tek varsayılan liste
+      clean = [{ id: uid(), name: listNameDraft(defaultName) || 'Liste' }];
+      seen[clean[0].id] = true;
+      changed = true;
+    }
+    items.forEach(function (t) {
+      if (!t || typeof t !== 'object') return;
+      if (typeof t.listId !== 'string' || !seen[t.listId]) { t.listId = clean[0].id; changed = true; }
+    });
+    return { lists: clean, todos: items, changed: changed };
+  }
+
   var api = {
     KEYS: KEYS,
     CYCLE_LEN: CYCLE_LEN,
@@ -318,7 +355,9 @@
     sortNotes: sortNotes,
     moveNote: moveNote,
     placeNote: placeNote,
-    mdToHtml: mdToHtml
+    mdToHtml: mdToHtml,
+    listNameDraft: listNameDraft,
+    todoListsInit: todoListsInit
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
