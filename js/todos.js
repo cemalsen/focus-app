@@ -7,11 +7,13 @@
 
   var S = window.FocusStore;
 
-  var lists = [];        // {id,name} — şerit sırası = dizi sırası (liste sıralama aracı yok)
+  var lists = [];        // {id,name} — şerit sırası = dizi sırası (S.moveList/placeList ile taşınır)
   var activeId = null;   // seçili listenin kimliği
   var todos = [];        // {id,text,done,createdAt,order,listId}
   var filter = 'all';    // 'all' | 'active' | 'done'
   var draggedId = null;  // sürükle-bırak sırasında taşınan madde kimliği
+  var draggedTabId = null; // sekme şeridinde sürüklenen liste kimliği (HTML5 DnD)
+  var deleteArmed = false; // iki adımlı "Listeyi sil" onayı — sekme değişince sıfırlanır
   var els = {};
 
   function persist() {
@@ -41,6 +43,28 @@
   }
 
   /* ── liste sekmeleri ─────────────────────────────────────── */
+  function indexOfList(id) {
+    var i = -1;
+    lists.forEach(function (l, j) { if (l.id === id) i = j; });
+    return i;
+  }
+
+  function nameOfList(id) {
+    var found = lists.filter(function (l) { return l.id === id; })[0];
+    return found ? found.name : '';
+  }
+
+  // Sekmeyi hedef sekmenin bulunduğu şerit indeksine taşı; başarılıysa
+  // kalıcı yaz, yeniden kur ve odağı taşınan sekmenin yeni düğümüne ver.
+  function moveTabTo(dragId, targetId) {
+    if (S.placeList(lists, dragId, indexOfList(targetId))) {
+      persistLists();
+      render();
+      var moved = document.getElementById('todo-tab-' + dragId);
+      if (moved) moved.focus();
+    }
+  }
+
   function renderTabs() {
     els.tabs.innerHTML = '';
     lists.forEach(function (l) {
@@ -55,9 +79,82 @@
       var selected = l.id === activeId;
       b.setAttribute('aria-selected', String(selected));
       b.tabIndex = selected ? 0 : -1;
+      // Taşıma sözleşmesi: fare HTML5 DnD, klavye Shift+←/→, dokunmatik
+      // sekmenin kendisinden sürükleme (touch-action:none sayesinde kaydırma
+      // çalmaz; dokunma-tıklama seçimi bozmaz). Sürüklemenin tek-yol
+      // olmadığına dikkat: her taşıma klavyeyle de yapılabilir.
+      b.draggable = true;
+      b.setAttribute('aria-label', l.name + ' listesi — Shift+ok tuşlarıyla ya da sürükleyerek taşıyın');
       b.addEventListener('click', function () { selectList(l.id); });
-      // Ok tuşları sekmeler arasında dolaşır ve seçer (kabuk sekmeleriyle aynı söz).
+      b.addEventListener('dragstart', function (e) {
+        draggedTabId = l.id;
+        b.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', l.id);
+      });
+      b.addEventListener('dragover', function (e) {
+        if (!draggedTabId || draggedTabId === l.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        b.classList.add('drag-over');
+      });
+      b.addEventListener('dragleave', function () { b.classList.remove('drag-over'); });
+      b.addEventListener('drop', function (e) {
+        e.preventDefault();
+        b.classList.remove('drag-over');
+        if (!draggedTabId || draggedTabId === l.id) return;
+        var drag = draggedTabId;
+        draggedTabId = null;
+        moveTabTo(drag, l.id);
+      });
+      b.addEventListener('dragend', function () {
+        draggedTabId = null;
+        b.classList.remove('dragging');
+        Array.prototype.forEach.call(els.tabs.querySelectorAll('.todo-tab.drag-over'), function (el) {
+          el.classList.remove('drag-over');
+        });
+      });
+      // Dokunmatik/kalem: preventDefault YOK — dokunmatik tıklamada click
+      // bastırılmasın (sekme seçimi dokunmatikte de çalışsın).
+      var ptr = null;
+      b.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse') return;
+        try { b.setPointerCapture(e.pointerId); } catch (err) { /* sentetik olaylarda tutamaç yok */ }
+        ptr = { id: e.pointerId, over: null };
+        b.classList.add('dragging');
+      });
+      b.addEventListener('pointermove', function (e) {
+        if (!ptr || ptr.id !== e.pointerId) return;
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        var over = el && el.closest ? el.closest('.todo-tab') : null;
+        if (over === b) over = null;
+        if (ptr.over && ptr.over !== over) ptr.over.classList.remove('drag-over');
+        ptr.over = over || null;
+        if (over) over.classList.add('drag-over');
+      });
+      function endPointer(e) {
+        if (!ptr || ptr.id !== e.pointerId) return;
+        var over = ptr.over;
+        b.classList.remove('dragging');
+        if (over) over.classList.remove('drag-over');
+        ptr = null;
+        if (over) moveTabTo(l.id, over.dataset.id);
+      }
+      b.addEventListener('pointerup', endPointer);
+      b.addEventListener('pointercancel', endPointer);
+      // Ok tuşları sekmeler arasında dolaşır ve seçer (kabuk sekmeleriyle aynı söz);
+      // Shift+ok sekmenin kendisini komşu güneye taşır (sıra değişir, seçim değişmez).
       b.addEventListener('keydown', function (e) {
+        if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          e.preventDefault();
+          if (S.moveList(lists, l.id, e.key === 'ArrowLeft' ? -1 : 1)) {
+            persistLists();
+            render();
+            var movedTab = document.getElementById('todo-tab-' + l.id);
+            if (movedTab) movedTab.focus();
+          }
+          return;
+        }
         var all = Array.prototype.slice.call(els.tabs.querySelectorAll('.todo-tab'));
         var i = all.indexOf(b);
         var next = null;
@@ -81,6 +178,7 @@
   function selectList(id) {
     if (id === activeId || !lists.some(function (l) { return l.id === id; })) return;
     activeId = id;
+    deleteArmed = false; // farklı listeye geçildi; silme onayı geçerliliğini yitirdi
     persistActive();
     render();
   }
@@ -99,6 +197,7 @@
     var l = { id: S.uid(), name: name };
     lists.push(l);
     activeId = l.id; // yeni sekme hemen seçili açılır
+    deleteArmed = false;
     persistLists();
     persistActive();
     render();
@@ -270,10 +369,36 @@
     });
   }
 
+  // "Listeyi sil" liste şeridinin altına konur (karmaşa olmasın); tek listede
+  // gizli — uygulama daima en az bir listeyle çalışır. İlk tık onaylar
+  // ("Emin misin?"), ikinci tık siler; sekme değişimi/onaylamama sıfırlar.
+  function updateListDelete() {
+    els.listDelete.hidden = lists.length <= 1;
+    els.listDelete.textContent = deleteArmed ? 'Emin misin?' : 'Listeyi sil';
+    els.listDelete.setAttribute('aria-label',
+      (deleteArmed ? 'Silmeyi onayla — ' : 'Aktif listeyi sil — ') + nameOfList(activeId));
+  }
+
+  // Aktif listeyi maddeleriyle siler; komşu sekme seçilir (son liste idiyse önceki).
+  function deleteActiveList() {
+    var idx = indexOfList(activeId);
+    var gone = activeId;
+    lists = lists.filter(function (l) { return l.id !== gone; });
+    todos = todos.filter(function (t) { return t.listId !== gone; });
+    activeId = lists[Math.min(idx, lists.length - 1)].id;
+    persist();
+    persistLists();
+    persistActive();
+    render();
+    var tab = document.getElementById('todo-tab-' + activeId);
+    if (tab) tab.focus();
+  }
+
   function render() {
     renderTabs();
     renderList();
     renderCounts();
+    updateListDelete();
   }
 
   function add(text) {
@@ -303,6 +428,7 @@
       listNew: document.getElementById('todo-list-new'),
       listDialog: document.getElementById('todo-list-dialog'),
       listName: document.getElementById('todo-list-name'),
+      listDelete: document.getElementById('todo-list-delete'),
       fAll: document.getElementById('filter-all'),
       fActive: document.getElementById('filter-active'),
       fDone: document.getElementById('filter-done')
@@ -331,6 +457,19 @@
     });
     els.clear.addEventListener('click', clearDone);
     els.listNew.addEventListener('click', openCreateDialog);
+    // İki adımlı silme: ilk tık onaylar (etiket "Emin misin?" olur), ikinci
+    // tık aktif listeyi maddeleriyle siler; sekme değişimi onayı sıfırlar.
+    els.listDelete.addEventListener('click', function () {
+      if (lists.length <= 1) return; // tek liste silinemez — uygulama en az bir listeyle çalışır
+      if (!deleteArmed) {
+        deleteArmed = true;
+        render();
+        els.listDelete.focus();
+        return;
+      }
+      deleteArmed = false;
+      deleteActiveList();
+    });
     // Pop-up: "Tamam" (returnValue "ok") listeyi kurar; "İptal" ve Esc yalnız kapatır.
     els.listDialog.addEventListener('close', function () {
       if (els.listDialog.returnValue === 'ok') createFromDialog();

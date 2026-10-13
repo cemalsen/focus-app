@@ -54,7 +54,15 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+  /* Yapışkan altbilgi: içerik kısa olsa da footer viewport altına insin,
+     uzunsa sayfa sonunu izlesin — main esner, footer'ı iter. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh; /* mobil adres çubuğu: dvh varsa onu kullan */
 }
+
+main { flex: 1 0 auto; }
 
 p { max-width: var(--measure); }
 
@@ -476,10 +484,18 @@ input[type="number"] { width: 6ch; }
   font-size: var(--text-sm);
   min-height: var(--hit);
   padding: var(--space-1) var(--space-3);
+  /* Dokunmatikte sekmeden sürükleyerek sıralama: sayfa kaydırma çalmasın.
+     (Dokunma/tıklama etkilenmez — touch-action yalnız kaydırmayı kapatır.) */
+  touch-action: none;
+  user-select: none;
   transition: background-color var(--dur-fast) var(--ease-standard),
               color var(--dur-fast) var(--ease-standard);
 }
 .todo-tab:hover { color: var(--fg); }
+/* Sekme şeridi sürükleme durumları (madde satırlarındakiyle aynı dil) */
+.todo-tab[draggable="true"] { cursor: grab; }
+.todo-tab.dragging { opacity: 0.4; }
+.todo-tab.drag-over { background: color-mix(in oklab, var(--fg) 8%, transparent); }
 .todo-tab[aria-selected="true"] {
   background: var(--fg);
   border-color: var(--fg);
@@ -648,6 +664,9 @@ input[type="number"] { width: 6ch; }
   margin-top: var(--space-8);
   padding: var(--space-4) var(--space-6);
 }
+/* Metnin altında UA <p> kenar boşluğu kalmasın: altbilgi yüksekliğini yalnız
+   padding belirler (yapışkan gövde: body flex + main{flex:1}). */
+.app-footer p { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

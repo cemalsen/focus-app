@@ -104,6 +104,10 @@ describe('yapılacaklar — çoklu liste', () => {
       await page.click('#todo-list-new');
       await page.fill('#todo-list-name', ' Alışveriş ');
       await page.click('#todo-list-dialog button[value="ok"]');
+      // Chromium <dialog> "close" olayını tıklamadan birkaç ms SONRA ateşler
+      // (form method=dialog); liste o tikta kurulur — hemen okumak yarıştır.
+      await page.waitForFunction((n) => Array.from(document.querySelectorAll('.todo-tab'))
+        .some((e) => e.textContent === n), 'Alışveriş');
       assert.deepEqual(await tabTexts(page), ['Genel', 'Alışveriş']);
       assert.equal(await activeTabText(page), 'Alışveriş');
       assert.equal(await page.$eval('#todo-empty', (e) => e.hidden), false, 'boş liste boş durumunu göstermeli');
@@ -159,6 +163,61 @@ describe('yapılacaklar — çoklu liste', () => {
       assert.equal(await stored(page, 'focus-app:todo-active'), LIST_A.id);
       const focused = await page.evaluate(() => document.activeElement && document.activeElement.dataset.id);
       assert.equal(focused, LIST_A.id, 'ok sonrası odak yeni sekmede kalmalı');
+    });
+  });
+
+  it('sekmeler Shift+ok ile taşınır; sıra kalıcı, seçim ve odak korunur', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await open(page, { todos: [], lists: [LIST_A, LIST_B] });
+      // Alışveriş sekmesini sola taşı: şerit sırası değişir, SEÇİM değişmez.
+      await page.focus('.todo-tab[data-id="l-alis"]');
+      await page.keyboard.press('Shift+ArrowLeft');
+      assert.deepEqual(await tabTexts(page), ['Alışveriş', 'İş'], 'Shift+ok sekmenin kendisini taşır');
+      assert.equal(await activeTabText(page), 'İş', 'taşıma seçimi devralmaz');
+      const focused = await page.evaluate(() => document.activeElement && document.activeElement.dataset.id);
+      assert.equal(focused, LIST_B.id, 'odak taşınan sekmenin yeni düğümünde kalmalı');
+      assert.deepEqual((await stored(page, 'focus-app:todo-lists')).map((l) => l.id), [LIST_B.id, LIST_A.id]);
+      await page.reload();
+      await page.click('#tab-todos');
+      assert.deepEqual(await tabTexts(page), ['Alışveriş', 'İş'], 'şerit sırası yenilemede kalmalı');
+      // Sol uçta Shift+← sessiz no-op — dizi bozulmaz.
+      await page.focus('.todo-tab[data-id="l-alis"]');
+      await page.keyboard.press('Shift+ArrowLeft');
+      assert.deepEqual(await tabTexts(page), ['Alışveriş', 'İş'], 'uçta taşıma yok');
+    });
+  });
+
+  it('liste silme: iki adımlı onay, maddeleriyle siler, sekme değişimi onayı sıfırlar', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await open(page, {
+        todos: [
+          { id: 't1', text: 'Rapor yaz', done: false, createdAt: '2026-10-01T09:00:00.000Z', order: 2, listId: LIST_A.id },
+          { id: 't2', text: 'Süt al', done: false, createdAt: '2026-10-02T09:00:00.000Z', order: 1, listId: LIST_B.id }
+        ],
+        lists: [LIST_A, LIST_B]
+      });
+      assert.equal(await page.$eval('#todo-list-delete', (e) => e.hidden), false, 'iki listede silme düğmesi görünür');
+      // Onaylama + sekme değişimi = sıfırlanır.
+      await page.click('#todo-list-delete');
+      assert.equal(await page.textContent('#todo-list-delete'), 'Emin misin?');
+      await page.click('.todo-tab[data-id="l-alis"]');
+      assert.equal(await page.textContent('#todo-list-delete'), 'Listeyi sil', 'sekme değişimi onayı sıfırlar');
+      assert.deepEqual(await tabTexts(page), ['İş', 'Alışveriş'], 'onaysız tık liste silmez');
+      // İş listesini iki tıkla sil: komşu seçilir, maddeleri de gider.
+      await page.click('.todo-tab[data-id="l-is"]');
+      await page.click('#todo-list-delete');
+      await page.click('#todo-list-delete');
+      assert.deepEqual(await tabTexts(page), ['Alışveriş']);
+      assert.equal(await activeTabText(page), 'Alışveriş', 'komşu sekme seçilmeli');
+      assert.deepEqual(await itemTexts(page), ['Süt al'], 'yalnız silinen listenin maddeleri gider');
+      const lists = await stored(page, 'focus-app:todo-lists');
+      assert.deepEqual(lists.map((l) => l.id), [LIST_B.id]);
+      const todos = await stored(page, 'focus-app:todos');
+      assert.deepEqual(todos.map((x) => x.id), ['t2'], 'silinen listenin maddeleri kalıcı silinir');
+      assert.equal(await page.$eval('#todo-list-delete', (e) => e.hidden), true, 'tek listede düğme gizlenir');
+      await page.reload();
+      await page.click('#tab-todos');
+      assert.deepEqual(await tabTexts(page), ['Alışveriş'], 'silme yenilemede kalıcı');
     });
   });
 });

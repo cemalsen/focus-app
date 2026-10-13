@@ -591,3 +591,34 @@ describe('todoListsInit — çok listeli geçiş', () => {
     assert.equal(r.changed, true);
   });
 });
+
+/* ── liste sırası: moveList / placeList ── */
+describe('moveList / placeList — sekme şeridi sırası', () => {
+  it('placeList id’yi hedef indekse taşır ve true döner (dizi yerinde değişir)', () => {
+    const lists = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }];
+    assert.equal(S.placeList(lists, 'a', 2), true);
+    assert.deepEqual(lists.map((l) => l.id), ['b', 'c', 'a']);
+    assert.equal(S.placeList(lists, 'c', 0), true);
+    assert.deepEqual(lists.map((l) => l.id), ['c', 'b', 'a']);
+  });
+
+  it('aynı yer / sınır dışı / bilinmeyen id / array olmayan girdi false — dizi bozulmaz', () => {
+    const lists = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+    assert.equal(S.placeList(lists, 'a', 0), false);
+    assert.equal(S.placeList(lists, 'a', -1), false);
+    assert.equal(S.placeList(lists, 'a', 2), false);
+    assert.equal(S.placeList(lists, 'yok', 1), false);
+    assert.equal(S.placeList('bozuk', 'a', 1), false);
+    assert.deepEqual(lists.map((l) => l.id), ['a', 'b']);
+  });
+
+  it('moveList komşuya taşır (-1 sol, +1 sağ); uçta ve bilinmeyen id’de false', () => {
+    const lists = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }];
+    assert.equal(S.moveList(lists, 'b', -1), true);
+    assert.deepEqual(lists.map((l) => l.id), ['b', 'a', 'c']);
+    assert.equal(S.moveList(lists, 'b', -1), false, 'sol uçta no-op');
+    assert.equal(S.moveList(lists, 'c', 1), false, 'sağ uçta no-op');
+    assert.equal(S.moveList(lists, 'yok', 1), false);
+    assert.deepEqual(lists.map((l) => l.id), ['b', 'a', 'c']);
+  });
+});

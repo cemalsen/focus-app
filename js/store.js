@@ -295,9 +295,33 @@
     return true;
   }
 
+  /* ── liste sırası: şerit sırası = dizi sırası (ayrı order alanı yok) ──
+     placeList: id'yi hedef indekse taşır (splice tabanlı yer değiştirme);
+     moveList: odaklı sekmeden komşu sekmeye taşır (-1 sol, +1 sağ).
+     İkisi de GİRDİ DİZİSİNİ yerinde değiştirir ve gerçek taşınmada true
+     döner; aynı yer / sınır dışı / bulunamayan id false — sessiz no-op. */
+  function placeList(lists, id, targetIndex) {
+    if (!Array.isArray(lists)) return false;
+    var from = -1;
+    lists.forEach(function (l, i) { if (l && l.id === id) from = i; });
+    if (from < 0 || targetIndex < 0 || targetIndex >= lists.length || from === targetIndex) return false;
+    var moved = lists.splice(from, 1)[0];
+    lists.splice(targetIndex, 0, moved);
+    return true;
+  }
+
+  function moveList(lists, id, dir) {
+    if (!Array.isArray(lists)) return false;
+    var from = -1;
+    lists.forEach(function (l, i) { if (l && l.id === id) from = i; });
+    if (from < 0) return false;
+    return placeList(lists, id, from + dir);
+  }
+
   /* ── yapılacaklar listeleri: çoklu liste modeli + geçiş ────────
      lists: [{id,name}] — sekme şeridi; görüntüleme sırası dizi sırasıdır
-     (liste sıralama aracı bilinçli olarak kapsam dışı). Her madde `listId`
+     (sıra placeList/moveList ile kullanıcı tarafından değiştirilebilir).
+     Her madde `listId`
      ile bir listeye bağlıdır; listesiz (eski) maddeler ilk yüklemede
      varsayılan ada bağlanır. `changed` yalnız gerçek onarım/üretim olduysa
      true — gereksiz kalıcı yazım yapılmaz. */
@@ -357,7 +381,9 @@
     placeNote: placeNote,
     mdToHtml: mdToHtml,
     listNameDraft: listNameDraft,
-    todoListsInit: todoListsInit
+    todoListsInit: todoListsInit,
+    moveList: moveList,
+    placeList: placeList
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
