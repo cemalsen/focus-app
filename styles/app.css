@@ -137,18 +137,33 @@ p { max-width: var(--measure); }
 /* Tema düğmesi simgesi: base'te çizilmez (masaüstü metin etiketiyle değişmez).
    Dar ekranda aşağıdaki @media açar — base kuralı kaynak sırasıyla ÖNCE gelmeli. */
 .theme-toggle-icon { display: none; vertical-align: middle; }
+/* Ayarlar düğmesi de aynı sözleşme: masaüstü metinle, simge base'te çizilmez
+   (kaynak sırası — aşağıdaki @media kuralından ÖNCE gelmek zorunda). */
+.settings-toggle-icon { display: none; vertical-align: middle; }
 /* Dar ekran (mobil): tema düğmesi simgeye döner ve başlığın karşısında, sağ üst
    köşeye yerleşir (margin auto); sekmeler ikinci satıra iner. Gizlenen metnin
    erişilebilir adı js/app.js'teki aria-label'dan gelir. */
 @media (max-width: 48rem) {
-  .app-header #theme-toggle {
+  /* İkiliyi (Ayarlar + tema) sağ köşeye yapıştırmak için auto margin İLK
+     düğmede: tema düğmesi DOM'da son olduğu için en sağda kalır — o köşe
+     tests/shell-theme.test.js:55 ile kilitli, ikisine de auto verilirse ara
+     boşluk eşit paylaşıp düğmeleri ayırır. */
+  .app-header #settings-toggle {
     margin-inline-start: auto;
     min-width: var(--hit); /* simgeyle de asgari dokunma alanı (44px) */
+    padding-inline: var(--space-2);
+  }
+  .app-header #theme-toggle {
+    min-width: var(--hit);
     padding-inline: var(--space-2);
   }
   .app-header .tabs { flex-basis: 100%; order: 2; }
   .theme-toggle-text { display: none; }
   .theme-toggle-icon { display: inline-block; }
+  /* Ayarlar düğmesi de dar ekranda yalnız simge (kullanıcı isteği); ad yine
+     aria-label'dan gelir (js/app.js), metin span'ı çizilmez. */
+  .settings-toggle-text { display: none; }
+  .settings-toggle-icon { display: inline-block; }
   .theme-icon-sun { display: none; }
   .dark .theme-icon-sun { display: inline; }
   .dark .theme-icon-moon { display: none; }
@@ -238,21 +253,64 @@ input[type="number"] { width: 6ch; }
   font-size: var(--text-sm);
 }
 
-.settings {
-  border-top: var(--border-hairline, 1px) solid var(--border);
-  margin-top: var(--space-8);
-  padding-top: var(--space-4);
+/* Ayarlar pop-up'ı (yerel <dialog>): #note-dialog kalıbını tekrarlar — aynı
+   yüzey/çerçeve/yarıçap/ölçü, aynı perde yönü. Eskiden burada olan
+   <details class="settings"> kuralları bloğun taşınmasıyla ölüydü, silindi. */
+.settings-dialog {
+  background: var(--surface);
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--fg);
+  padding: var(--space-6);
+  width: min(32rem, calc(100vw - 2rem));
 }
-.settings summary {
+.settings-dialog::backdrop { background: color-mix(in oklab, var(--fg) 30%, transparent); }
+.dark .settings-dialog::backdrop { background: color-mix(in oklab, var(--bg) 65%, transparent); }
+.settings-dialog-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.settings-dialog-head .panel-title { margin: 0; }
+/* X düğmesi: .note-close ile aynı ölçü/dokunma alanı, ama burada HER zaman
+   çizilir (note-close base'te display:none'dir — o kuralı kopyalama tuzağı). */
+.settings-close {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--muted);
   cursor: pointer;
-  font-size: var(--text-sm);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: var(--text-base);
+  justify-content: center;
+  line-height: 1;
   min-height: var(--hit);
-  display: flex;
-  align-items: center;
+  min-width: var(--hit);
+  padding: 0;
 }
-.settings summary:hover { color: var(--fg); }
-.settings .row { margin: var(--space-3) 0; }
+.settings-close:hover { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); }
+/* Alanlar <fieldset> içinde: UA kenarlığı/boşluğu kalkar, grup adı kalır. */
+.settings-group {
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+}
+.settings-group legend {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+.settings-group .row { margin: 0; }
 
 /* ── pomodoro ───────────────────────────────────────────── */
 .pomo-stage {
