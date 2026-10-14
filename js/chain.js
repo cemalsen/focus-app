@@ -91,6 +91,14 @@
         btn.dataset.date = key;
         btn.tabIndex = -1;
 
+        // Ayın gün numarası: kutunun içinde açık gri ipucu. Süslemedir —
+        // tam tarih zaten aria-label'da, bu yüzden ekran okuyucuya kapatılır.
+        var num = document.createElement('span');
+        num.className = 'chain-day';
+        num.setAttribute('aria-hidden', 'true');
+        num.textContent = String(day.getDate());
+        btn.appendChild(num);
+
         if (key === todayKey) {
           btn.classList.add('today');
           todayBtn = btn;
