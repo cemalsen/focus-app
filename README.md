@@ -106,4 +106,4 @@ for f in js/*.js; do node --check "$f"; done
 node --test tests/
 ```
 
-`tests/notes-click.test.js` ve `tests/notes-view.test.js` gerçek tarayıcıda uçtan uca koşar: yutulan tıklama, bir notu okumanın sırayı bozmaması, elle sıralamanın kalıcılığı ve markdown önizleme/HTML kaçışı regresyonlarını korur (`tests/markdown.test.js` birim katmanı). Sistem Chrome'u kullanır; yoksa `npx playwright install chromium` ile Playwright tarayıcısı kurulabilir. Hiç tarayıcı bulunamazsa bu testler `skip` olur, diğerleri yeşil kalır.
+`tests/notes-click.test.js` ve `tests/notes-view.test.js` gerçek tarayıcıda uçtan uca koşar: yutulan tıklama, bir notu okumanın sırayı bozmaması, elle sıralamanın kalıcılığı, markdown önizleme/HTML kaçışı ve dar ekranda ön izleme paneli (kapalı başlar, liste üstünde açılır, X ile kapanır; masaüstü davranışı sabit) regresyonlarını korur (`tests/markdown.test.js` birim katmanı). Sistem Chrome'u kullanır; yoksa `npx playwright install chromium` ile Playwright tarayıcısı kurulabilir. Hiç tarayıcı bulunamazsa bu testler `skip` olur, diğerleri yeşil kalır.

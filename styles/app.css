@@ -342,6 +342,35 @@ input[type="number"] { width: 6ch; }
 
 .note-editor { display: flex; flex-direction: column; gap: var(--space-3); }
 .note-editor[hidden] { display: none; } /* display:flex, UA [hidden] kuralını ezer */
+/* Ön izleme paneli kapatma düğmesi: base'te hiç çizilmez — masaüstü davranışı
+   değişmez (display:none sekme sırasından da çıkarır). Dar ekranda aşağıdaki
+   @media açar; bu yüzden media kuralı base'den SONRA gelmek zorunda. */
+.note-close {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  display: none;
+  font: inherit;
+  font-size: var(--text-base);
+  justify-content: center;
+  line-height: 1;
+  min-height: var(--hit); /* asgari dokunma alanı (44px) */
+  min-width: var(--hit);
+  padding: 0;
+}
+.note-close:hover { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); }
+/* Dar ekran (mobil): panel listenin ÜSTÜNDE açılır (order, grid yerleşim
+   sırasını değiştirir), X sağ üst köşede görünür; js/notes.js previewOpen. */
+@media (max-width: 48rem) {
+  .note-editor { order: -1; position: relative; }
+  .note-close { display: inline-flex; position: absolute; right: var(--space-2); top: var(--space-2); }
+  /* Başlık ve form girişi X düğmesinin altına girmesin. */
+  .note-view-title, .note-title { padding-inline-end: calc(var(--hit) + var(--space-2)); }
+}
 /* Görünüm modu başlığı: form açılınca gizlenir, düzenleme formundaki
    #note-title girişi onun yerini alır (aynı tipografi). */
 .note-view-title {

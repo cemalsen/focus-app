@@ -11,6 +11,11 @@
   var draggedId = null; // sürükle-bırak sırasında taşınan not kimliği
   var saveTimer = null;
   var els = {};
+  var previewOpen = false; // dar ekranda ön izleme paneli kapalı başlar; masaüstünde etkisiz
+  // Dar ekran eşiği CSS'teki .notes-layout / .note-close kırılımıyla birebir aynı.
+  var mqNarrow = window.matchMedia('(max-width: 48rem)');
+
+  function isNarrow() { return mqNarrow.matches; }
 
   function persist() {
     return window.FocusApp.persist(S.KEYS.notes, notes);
@@ -178,6 +183,9 @@
     // Önizleme düzenleme sırasında textarea'nın aynasıdır (gizli); görünümde
     // birincil içeriktir.
     els.previewWrap.setAttribute('aria-hidden', editing ? 'true' : 'false');
+    // Dar ekran: panel X ile kapatılır, kapalıysa hiç çizilmez. Masaüstünde bayrak
+    // yok sayılır — seçili not varsa panel her zaman görünür (değişmeyen davranış).
+    els.editor.hidden = !get(selectedId) || (isNarrow() && !previewOpen);
   }
 
   function renderEditor() {
@@ -197,6 +205,7 @@
     flushSave();
     selectedId = id;
     editing = false; // seçim değişince salt-okur önizlemeye dön
+    previewOpen = true; // dar ekranda seçim ön izleme panelini açar; masaüstünde etkisiz
     renderList();
     renderEditor();
     // Liste düğmesi yeniden kuruldu; klavye odağını geri ver.
@@ -283,6 +292,7 @@
       viewTitle: document.getElementById('note-view-title'),
       editBtn: document.getElementById('note-edit'),
       doneBtn: document.getElementById('note-done'),
+      closeBtn: document.getElementById('note-close'),
       newTitle: document.getElementById('note-new-title'),
       newBody: document.getElementById('note-new-body')
     };
@@ -318,6 +328,16 @@
       renderView();
       els.editBtn.focus();
     });
+    // Dar ekran: X paneli kapatır (yazılanlar flush edilir), odak seçili satıra döner.
+    els.closeBtn.addEventListener('click', function () {
+      flushSave();
+      previewOpen = false;
+      renderView();
+      var back = els.list.querySelector('.note-item[data-id="' + selectedId + '"]');
+      if (back) back.focus();
+    });
+    // Kırılım geçişinde görünürlük yeniden hesaplanır: mobil kapalı ↔ masaüstü açık.
+    mqNarrow.addEventListener('change', renderView);
     // Düzenleyiciyi kapatırken kaybetme: sekme değişiminde ve sayfadan çıkarken yaz.
     document.addEventListener('focusout', function (e) {
       if (els.editor.contains(e.target)) flushSave();

@@ -4,7 +4,9 @@
    2) elle sıralama tutamaktan: klavye ↑/↓ ve dokunmatik sürükleme; kalıcı,
    3) markdown önizleme biçimlendirir ve HTML girdisini kaçırır,
    4) dar genişlikte (375px) yatay taşma yoktur (uzun nowrap başlık kırışır),
-   5) sürükle-bırak sıralaması kalıcıdır (order alanına yazar, updatedAt'e dokunmaz).
+   5) sürükle-bırak sıralaması kalıcıdır (order alanına yazar, updatedAt'e dokunmaz),
+   6) dar ekranda (≤48rem) ön izleme kapalı başlar; seçim paneli listenin üstünde
+      açılır ve X kapatır; geniş ekranda davranış değişmez.
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -188,6 +190,31 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
       assert.deepEqual(await listOrder(page), ['n3', 'n1', 'n2'], 'sürükle-bırak sıralaması kalıcı değil');
       const stamps = await page.evaluate(() => JSON.parse(localStorage.getItem('focus-app:notes')).map((n) => n.id + '=' + n.updatedAt));
       assert.ok(stamps.includes('n3=2026-10-03T09:00:00.000Z'), "sürükle-bırak updatedAt'e dokunmamalı: " + stamps.join(','));
+    });
+  });
+
+  it('dar ekranda ön izleme kapalı başlar; seçim paneli listenin üstünde açılır, X kapatır', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await page.setViewportSize({ width: 375, height: 720 });
+      await seedNotes(page, baseUrl, SEED);
+      // init ilk notu kendiliğinden seçer; dar ekranda panel yine de kapalı gelmeli.
+      assert.equal(await page.isVisible('#note-editor'), false, 'ön izleme dar ekranda açık başladı');
+      await page.click('.note-item[data-id="n2"]');
+      assert.equal(await page.isVisible('#note-editor'), true, 'seçim ön izleme panelini açmadı');
+      assert.equal(await page.isVisible('#note-close'), true, 'kapatma (X) düğmesi görünmüyor');
+      const panelBottom = await page.$eval('#note-editor', (el) => el.getBoundingClientRect().bottom);
+      const listTop = await page.$eval('#note-list', (el) => el.getBoundingClientRect().top);
+      assert.ok(panelBottom <= listTop + 1,
+        'panel listenin üstünde değil: panel.bottom=' + panelBottom + ' list.top=' + listTop);
+      await page.click('#note-close');
+      assert.equal(await page.isVisible('#note-editor'), false, 'X ön izlemeyi kapatmadı');
+      // Aynı notu yeniden seçmek paneli tekrar açar.
+      await page.click('.note-item[data-id="n2"]');
+      assert.equal(await page.isVisible('#note-editor'), true, 'yeniden seçim paneli açmadı');
+      // Geniş ekrana geçiş: seçili notun paneli görünür kalır, X çizilmez (masaüstü değişmez).
+      await page.setViewportSize({ width: 1280, height: 800 });
+      assert.equal(await page.isVisible('#note-editor'), true, 'masaüstünde panel görünmez oldu');
+      assert.equal(await page.isVisible('#note-close'), false, 'X masaüstünde görünüyor');
     });
   });
 });
