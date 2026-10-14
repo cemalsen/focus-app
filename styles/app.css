@@ -134,6 +134,25 @@ p { max-width: var(--measure); }
   border-bottom-color: var(--fg);
   font-weight: var(--weight-medium);
 }
+/* Tema düğmesi simgesi: base'te çizilmez (masaüstü metin etiketiyle değişmez).
+   Dar ekranda aşağıdaki @media açar — base kuralı kaynak sırasıyla ÖNCE gelmeli. */
+.theme-toggle-icon { display: none; vertical-align: middle; }
+/* Dar ekran (mobil): tema düğmesi simgeye döner ve başlığın karşısında, sağ üst
+   köşeye yerleşir (margin auto); sekmeler ikinci satıra iner. Gizlenen metnin
+   erişilebilir adı js/app.js'teki aria-label'dan gelir. */
+@media (max-width: 48rem) {
+  .app-header #theme-toggle {
+    margin-inline-start: auto;
+    min-width: var(--hit); /* simgeyle de asgari dokunma alanı (44px) */
+    padding-inline: var(--space-2);
+  }
+  .app-header .tabs { flex-basis: 100%; order: 2; }
+  .theme-toggle-text { display: none; }
+  .theme-toggle-icon { display: inline-block; }
+  .theme-icon-sun { display: none; }
+  .dark .theme-icon-sun { display: inline; }
+  .dark .theme-icon-moon { display: none; }
+}
 
 /* ── düğmeler ve girişler ───────────────────────────────── */
 .btn {

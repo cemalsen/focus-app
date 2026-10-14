@@ -52,10 +52,17 @@
       : false;
     var dark = stored === null ? prefersDark : stored === 'dark';
 
+    // Düğme içeriği metin + simge parçalarından oluşur; textContent simgeyi de
+    // siler. Metin parçasını güncelle; dar ekranda metin CSS'le gizlendiğinde
+    // erişilebilir ad aria-label'dan gelir (her iki modda aynı metin).
+    var label = btn.querySelector('.theme-toggle-text');
+
     function apply() {
+      var name = dark ? 'Aydınlık tema' : 'Koyu tema';
       document.documentElement.classList.toggle('dark', dark);
       btn.setAttribute('aria-pressed', String(dark));
-      btn.textContent = dark ? 'Aydınlık tema' : 'Koyu tema';
+      btn.setAttribute('aria-label', name);
+      if (label) label.textContent = name; else btn.textContent = name;
     }
 
     btn.addEventListener('click', function () {
