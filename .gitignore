@@ -10,3 +10,5 @@ node_modules/
 
 .wrongstack/
 !/.wrongstack/
+.wrongstack/
+.DS_Store
