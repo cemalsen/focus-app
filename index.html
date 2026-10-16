@@ -33,6 +33,19 @@
       <div class="pomo-stage">
         <p class="pomo-phase" id="pomo-phase">Odak</p>
         <p class="pomo-time" id="pomo-time" role="timer">25:00</p>
+        <!-- Kadran görünümü. Varsayılan dijital: kadran `hidden` doğar ve
+             yalnızca Ayarlar → Saat görünümü'nde seçilince çizilir. Kollar 12
+             yönünde çizilir, dönüşü js/pomodoro.js renderDial() yapar; kalan
+             zaman bilgisi role="timer" olan #pomo-time'da yaşar (kadran
+             aria-hidden'dır — görsel yedek, canlı değer değil). -->
+        <svg class="pomo-dial" id="pomo-dial" viewBox="0 0 120 120" aria-hidden="true" hidden>
+          <circle class="pomo-dial-face" cx="60" cy="60" r="56"/>
+          <circle class="pomo-dial-ring-base" cx="60" cy="60" r="47"/>
+          <circle class="pomo-dial-ring" id="pomo-dial-ring" cx="60" cy="60" r="47"/>
+          <line class="pomo-dial-hand pomo-dial-min" id="pomo-dial-min" x1="60" y1="60" x2="60" y2="27"/>
+          <line class="pomo-dial-hand pomo-dial-sec" id="pomo-dial-sec" x1="60" y1="60" x2="60" y2="14"/>
+          <circle class="pomo-dial-cap" cx="60" cy="60" r="3"/>
+        </svg>
         <div class="bar" aria-hidden="true"><i id="pomo-bar"></i></div>
         <p class="pomo-cycle muted" id="pomo-cycle">Döngü 1/4</p>
         <div class="row">
@@ -203,6 +216,13 @@
         <span class="muted small" id="pomo-sound-state">Açık</span>
       </div>
       <p class="muted small">Her 4 odak sonrası uzun mola verilir. Biten her odak, zincirde bugünü işaretler.</p>
+    </fieldset>
+    <fieldset class="settings-group">
+      <legend>Saat görünümü</legend>
+      <div class="segmented" role="group" aria-label="Saat görünümü">
+        <button class="seg-btn" id="pomo-display-digital" type="button" aria-pressed="true">Dijital</button>
+        <button class="seg-btn" id="pomo-display-dial" type="button" aria-pressed="false">Kadran</button>
+      </div>
     </fieldset>
   </dialog>
 

@@ -358,6 +358,36 @@ input[type="number"] { width: 6ch; }
   min-width: 5ch;
 }
 
+/* Kadran görünümü: SVG yüz + ilerleme halkası + kollar, tümü token'dan
+   boyanır (yeni renk üretmez). `hidden` override ZORUNLU — .pomo-dial bir
+   display:block kurar, onu ezmesi UA [hidden]{display:none} kuralını yeniden
+   devreye sokar (nota formu tuzağı). Kollar CSS'le dönmez: js/pomodoro.js
+   her render'da SVG transform="rotate(...)" yazar, CSS yalnız görünüm. */
+.pomo-dial {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+  width: min(16rem, 62vw);
+}
+.pomo-dial[hidden] { display: none; }
+.pomo-dial-face { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.pomo-dial-ring-base { fill: none; stroke: var(--border); stroke-width: 3; }
+.pomo-dial-ring {
+  fill: none;
+  stroke: var(--fg);
+  stroke-dasharray: 295.31;   /* Çevre = 2π·47 ≈ 295.31; JS offset'i piksel besler */
+  stroke-dashoffset: 295.31;
+  stroke-linecap: round;
+  stroke-width: 3;
+  transform: rotate(-90deg);  /* yay 12 yönünden başlar; kalan süre saat yönünde erir */
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset var(--dur-base) var(--ease-standard);
+}
+.pomo-dial-hand { stroke-linecap: round; }
+.pomo-dial-min { stroke: var(--fg); stroke-width: 4; }
+.pomo-dial-sec { stroke: var(--muted); stroke-width: 1.5; }
+.pomo-dial-cap { fill: var(--fg); }
+
 .pomo-cycle { margin: 0; font-size: var(--text-sm); }
 
 .pomo-status { min-height: 1.5em; margin: 0; }

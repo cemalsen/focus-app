@@ -172,4 +172,55 @@ describe('ayarlar — başlıktaki düğme ve süre ayarları pop-up\'ı', () =>
       await page.close();
     }
   });
+
+  it('Saat görünümü: Dijital/Kadran seçimi kadranı çizer, dijitali gizler; yenilemede kalıcı',
+    { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    try {
+      await page.emulateMedia({ colorScheme: 'light' });
+      await freshPage(page, 1280);
+
+      // Varsayılan digital: kadran gizli, dijital görünür.
+      assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), true,
+        'varsayılan modda kadran gizli değil');
+      assert.ok((await box(page, '#pomo-time')).w > 0, 'varsayılan dijital saat görünmüyor');
+
+      // Kadran'a geç: kadran çizilir, dijital metin yalnızca görsel gizlenir.
+      await page.click('#settings-toggle');
+      await page.click('#pomo-display-dial');
+      assert.equal(await page.evaluate(() =>
+        document.getElementById('pomo-display-dial').getAttribute('aria-pressed')), 'true');
+      assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), false,
+        'kadran gösterilmedi');
+      assert.ok((await box(page, '#pomo-dial')).w > 0, 'kadran çizilmedi');
+      assert.equal(await page.evaluate(() =>
+        document.getElementById('pomo-time').classList.contains('visually-hidden')), true,
+        'kadran modunda dijital metin görünür kalmalı (yalnız görsel gizlenmeli)');
+      const savedMode = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('focus-app:pomodoro')).settings.displayMode);
+      assert.equal(savedMode, 'dial', 'görünüm ayarı kalıcılaşmadı');
+      await page.keyboard.press('Escape');
+
+      // Yenilemede kadran modu geri yüklenir.
+      await page.reload();
+      assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), false,
+        'yenilemede kadran modu geri yüklenmedi');
+      assert.equal(await page.evaluate(() =>
+        document.getElementById('pomo-time').classList.contains('visually-hidden')), true);
+
+      // Dijital'e dön: kadran kapanır, dijital saat yeniden çizilir.
+      await page.click('#settings-toggle');
+      await page.click('#pomo-display-digital');
+      assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), true,
+        'dijitale dönüşte kadran kapanmadı');
+      assert.ok((await box(page, '#pomo-time')).w > 0, 'dijital saate dönüş çizilmedi');
+    } finally {
+      await page.close();
+    }
+  });
 });

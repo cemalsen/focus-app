@@ -13,10 +13,12 @@
   var state = null;
   var ticker = null;
   var audioCtx = null;
+  // Kadran ilerleme halkasının çevresi (SVG r=47): JS offset'i piksel besler.
+  var DIAL_RING_C = 2 * Math.PI * 47;
 
   function defaultState() {
     return {
-      settings: { focusMin: 25, shortMin: 5, longMin: 15, bellSound: true },
+      settings: { focusMin: 25, shortMin: 5, longMin: 15, bellSound: true, displayMode: 'digital' },
       phase: 'focus',            // 'focus' | 'short' | 'long'
       focusInCycle: 0,           // döngü içinde tamamlanan odak sayısı (0..3)
       running: false,
@@ -36,6 +38,9 @@
     st.settings.focusMin = S.clampMinutes(st.settings.focusMin, 1, 180, 25);
     st.settings.shortMin = S.clampMinutes(st.settings.shortMin, 1, 60, 5);
     st.settings.longMin = S.clampMinutes(st.settings.longMin, 1, 90, 15);
+    if (st.settings.displayMode !== 'digital' && st.settings.displayMode !== 'dial') {
+      st.settings.displayMode = 'digital';
+    }
     if (st.running && st.endAt) {
       // Sayfa kapalıyken süresi dolan tek faz tamamlanmış sayılır; sıradaki faz
       // otomatik başlamaz, kullanıcının "Başlat"ına kadar bekler.
@@ -82,6 +87,7 @@
       ? Math.max(0, state.endAt - Date.now())
       : state.remainingMs;
     var secs = Math.ceil(remainingMs / 1000);
+    var frac = totalMs > 0 ? Math.max(0, Math.min(1, remainingMs / totalMs)) : 0;
 
     els.time.textContent = S.formatClock(secs);
     els.phase.textContent = PHASE_LABEL[state.phase];
@@ -95,10 +101,41 @@
     PHASES.forEach(function (p) {
       els.phaseButtons[p].setAttribute('aria-pressed', p === state.phase ? 'true' : 'false');
     });
+    renderDisplay();
+    renderDial(frac, secs);
 
     document.title = state.running
       ? S.formatClock(secs) + ' · ' + PHASE_LABEL[state.phase] + ' — Odak'
       : BASE_TITLE;
+  }
+
+  /* Görünüm modu: dijital metin ile SVG kadran arasında geçiş. Kadran
+     modunda dijital metin YALNIZCA görsel olarak gizlenir (.visually-hidden) —
+     role="timer" değeri ekran okuyucuya canlı okunmaya devam eder; kadranın
+     kendisi aria-hidden'dır (çift duyuru olmaz). */
+  function renderDisplay() {
+    var dial = state.settings.displayMode === 'dial';
+    els.displayDigital.setAttribute('aria-pressed', dial ? 'false' : 'true');
+    els.displayDial.setAttribute('aria-pressed', dial ? 'true' : 'false');
+    // Kadran bir SVG: .hidden ÖZELLİĞİ HTML elemanlarında olduğu gibi
+    // hidden özniteliğine YANSIMAZ (SVGSVGElement HTMLElement değildir) —
+    // öznitelik elle açılır/kapanır. hidden ÖZNİTELİĞİ = gizli: kadran
+    // modunda KALDIRILIR (kadran çizilir), dijital modda eklenir.
+    if (dial) els.dial.removeAttribute('hidden');
+    else els.dial.setAttribute('hidden', '');
+    els.time.classList.toggle('visually-hidden', dial);
+  }
+
+  /* Kadran kolları kalan süreden hesaplanır. Akrep faz süresi boyunca saat
+     yönünde bir tam tur atar (t=0'da 12'de, süre bitince yine 12'de); saniye
+     kolu her dakikada bir tam tur. İlerleme halkası kalan oranı gösterir ve
+     saat yönünde erir. Tüm açılar kalan zamana göredir: sayaç geri saydıkça
+     kollar saat yönünde ilerler (tıpkı geri sayan bir mutfak saati gibi). */
+  function renderDial(frac, secs) {
+    els.dialMin.setAttribute('transform', 'rotate(' + ((1 - frac) * 360).toFixed(1) + ' 60 60)');
+    var s = secs % 60;
+    els.dialSec.setAttribute('transform', 'rotate(' + (((60 - s) % 60) * 6).toFixed(1) + ' 60 60)');
+    els.dialRing.style.strokeDashoffset = (DIAL_RING_C * (1 - frac)).toFixed(1);
   }
 
   function announce(msg) {
@@ -229,6 +266,15 @@
     render();
   }
 
+  /* Görünüm modu seçimi (Ayarlar → Saat görünümü). Sayacı bozmaz: yalnızca
+     dijital/kadran tercihi yazılır; render() görünümü senkronlar. */
+  function selectDisplay(mode) {
+    if (mode !== 'digital' && mode !== 'dial') return;
+    state.settings.displayMode = mode;
+    renderDisplay();
+    persist();
+  }
+
   function readSettings() {
     var beforeMs = S.phaseMinutes(state.phase, state.settings) * 60000;
     state.settings.focusMin = S.clampMinutes(els.focusMin.value, 1, 180, state.settings.focusMin);
@@ -265,7 +311,13 @@
       shortMin: document.getElementById('pomo-short-min'),
       longMin: document.getElementById('pomo-long-min'),
       sound: document.getElementById('pomo-sound'),
-      soundState: document.getElementById('pomo-sound-state')
+      soundState: document.getElementById('pomo-sound-state'),
+      displayDigital: document.getElementById('pomo-display-digital'),
+      displayDial: document.getElementById('pomo-display-dial'),
+      dial: document.getElementById('pomo-dial'),
+      dialMin: document.getElementById('pomo-dial-min'),
+      dialSec: document.getElementById('pomo-dial-sec'),
+      dialRing: document.getElementById('pomo-dial-ring')
     };
     state = loadState();
 
@@ -292,6 +344,8 @@
       renderSound();
       persist();
     });
+    els.displayDigital.addEventListener('click', function () { selectDisplay('digital'); });
+    els.displayDial.addEventListener('click', function () { selectDisplay('dial'); });
     window.addEventListener('beforeunload', function () {
       document.title = BASE_TITLE;
     });

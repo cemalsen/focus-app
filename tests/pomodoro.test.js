@@ -19,7 +19,18 @@ function makeElement(id) {
     style: {},
     attributes: {},
     listeners: {},
+    // js/pomodoro.js renderDisplay(), `#pomo-time` görünürlüğünü .visually-hidden
+    // sınıfıyla değiştirir (kadran modunda dijital metin erişilebilir kalır).
+    classList: {
+      _has: {},
+      toggle(name, force) {
+        const on = force === undefined ? !this._has[name] : !!force;
+        if (on) this._has[name] = true; else delete this._has[name];
+      },
+      contains(name) { return !!this._has[name]; }
+    },
     setAttribute(name, value) { this.attributes[name] = value; },
+    removeAttribute(name) { delete this.attributes[name]; },
     addEventListener(type, fn) {
       (this.listeners[type] = this.listeners[type] || []).push(fn);
     },
@@ -608,6 +619,86 @@ describe('faz seçimi — kullanıcı fazı elle değiştirebilir', () => {
       assert.equal(app.elements['pomo-start'].textContent, 'Başlat');
       assert.equal(pressed(app, 'focus'), 'true', 'seçici otomatik geçişi de yansıtır');
       assert.equal(app.dispatched.length, 0, 'mola bitiş zinciri işaretlemez');
+    } finally {
+      app.cleanup();
+    }
+  });
+});
+
+describe('saat görünümü — dijital/kadran seçimi', () => {
+  it('varsayılan dijital: kadran gizli, dijital metin görünür; seçici dijitali işaretli', () => {
+    const app = boot({});
+    try {
+      assert.ok('hidden' in app.elements['pomo-dial'].attributes, 'varsayılan modda kadran gizli olmalı');
+      assert.equal(app.elements['pomo-time'].classList.contains('visually-hidden'), false,
+        'dijital metin varsayılan modda gizlenmez');
+      assert.equal(app.elements['pomo-display-digital'].attributes['aria-pressed'], 'true');
+      assert.equal(app.elements['pomo-display-dial'].attributes['aria-pressed'], 'false');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('Kadran seçimi kadranı gösterir, dijitali erişilebilir biçimde gizler ve kalıcılaşır', () => {
+    const app = boot({});
+    try {
+      app.elements['pomo-display-dial'].click();
+
+      const st = S.load(S.KEYS.pomodoro, null);
+      assert.equal(st.settings.displayMode, 'dial', 'görünüm ayarı kalıcılaşmadı');
+      assert.ok(!('hidden' in app.elements['pomo-dial'].attributes), 'kadran gösterilmedi');
+      assert.equal(app.elements['pomo-time'].classList.contains('visually-hidden'), true,
+        'dijital metin kadran modunda görünmez olmalı');
+      assert.equal(app.elements['pomo-display-dial'].attributes['aria-pressed'], 'true');
+      assert.equal(app.elements['pomo-display-digital'].attributes['aria-pressed'], 'false');
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('kayıtlı kadran modu yeniden yüklenir; Dijital seçimi geri döndürür', () => {
+    const app = boot({
+      saved: {
+        settings: { focusMin: 25, shortMin: 5, longMin: 15, displayMode: 'dial' },
+        phase: 'focus', focusInCycle: 0, running: false, remainingMs: 25 * 60000, endAt: null
+      }
+    });
+    try {
+      assert.ok(!('hidden' in app.elements['pomo-dial'].attributes), 'kayıtlı kadran modu geri yüklenmedi');
+      assert.equal(app.elements['pomo-time'].classList.contains('visually-hidden'), true);
+
+      app.elements['pomo-display-digital'].click();
+      assert.equal(S.load(S.KEYS.pomodoro, null).settings.displayMode, 'digital');
+      assert.ok('hidden' in app.elements['pomo-dial'].attributes);
+      assert.equal(app.elements['pomo-time'].classList.contains('visually-hidden'), false);
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  it('kadran modunda render kolları ve halka offsetini kalan süreden hesaplar', () => {
+    const now = 1790860800000;
+    const app = boot({
+      now,
+      saved: {
+        settings: { focusMin: 25, shortMin: 5, longMin: 15, displayMode: 'dial' },
+        phase: 'focus', focusInCycle: 0, running: true,
+        remainingMs: 25 * 60000, endAt: now + 25 * 60000
+      }
+    });
+    try {
+      // Başlangıç: kalan %100 → iki kol da 12 yönünde (0°), halka dolu (offset 0).
+      assert.equal(app.elements['pomo-dial-min'].attributes['transform'], 'rotate(0.0 60 60)');
+      assert.equal(app.elements['pomo-dial-sec'].attributes['transform'], 'rotate(0.0 60 60)');
+      assert.equal(app.elements['pomo-dial-ring'].style.strokeDashoffset, '0.0');
+
+      // 5 dk geçti: kalan 20:00/25:00 → akrep 72° (saat yönü), saniye 12'de,
+      // halka kalan oranı gösterir (offset = Çevre·elapsed oranı).
+      app.clock.now = now + 5 * 60000;
+      app.tick();
+      assert.equal(app.elements['pomo-dial-min'].attributes['transform'], 'rotate(72.0 60 60)');
+      assert.equal(app.elements['pomo-dial-sec'].attributes['transform'], 'rotate(0.0 60 60)');
+      assert.equal(app.elements['pomo-dial-ring'].style.strokeDashoffset, '59.1');
     } finally {
       app.cleanup();
     }
