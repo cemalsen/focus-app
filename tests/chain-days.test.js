@@ -10,7 +10,8 @@
    4) ızgara penceresi zincirin en eski işaretiyle başladığı haftadan açılır
       (öncesinde boş sütun/hücre çizilmez); işaret yoksa yalnız bu hafta,
       zincir 13 haftadan eskiyse 13 hafta tavan; gelecek/bozuk anahtar
-      pencereyi bozmaz.
+      pencereyi bozmaz; en eski işaretin kaldırılması pencereyi anında
+      küçültür (sayfa yenilenmeden).
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -237,6 +238,79 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
       const junk = await gridFacts();
       assert.equal(junk.n, 7, 'gelecek anahtarı ızgarayı bozdu: ' + junk.n);
       assert.equal(junk.first, junk.mondayNow);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('en eski işaret kalkınca pencere anında küçülür (sayfa yenilenmeden)', { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    // Pencere işaretleme verisine türetilmiştir: en eski işaretin kaldırılması
+    // pencere başlangıcını ilerletir ve ızgara YENİDEN YÜKLEME BEKLEMEDEN
+    // küçülmelidir — aksi hâlde kullanıcının şikâyet ettiği boş sütunlar gece
+    // değişimine kadar ekranda kalır.
+    const facts = () => page.evaluate(() => {
+      const S = window.FocusStore;
+      const cells = Array.from(document.querySelectorAll('.chain-cell'));
+      return {
+        n: cells.length,
+        first: cells.length ? cells[0].dataset.date : null,
+        mondayNow: S.dateKey(S.mondayOf(new Date())),
+        status: document.getElementById('chain-status').textContent,
+        tabbable: document.querySelectorAll('.chain-cell[tabindex="0"]').length
+      };
+    });
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(baseUrl + '/index.html');
+      // İki işaret: 16 gün önce (eski hafta) + bu haftanın Pazartesi'i.
+      // Kalan işaret "bu hafta"da kalmalı: now-2, Pazartesi/Salı günleri
+      // geçen haftaya düşüp beklentiyi bozardı. Pazartesi günü kNew bugüne
+      // denk gelir — hiçbir iddiayı etkilemez (tek hafta yine tek hafta).
+      const seed = await page.evaluate(() => {
+        const S = window.FocusStore;
+        const now = new Date();
+        const kOld = S.dateKey(S.addDays(now, -16));
+        const kNew = S.dateKey(S.mondayOf(now));
+        const marks = {};
+        marks[kOld] = true;
+        marks[kNew] = true;
+        localStorage.setItem('focus-app:chain', JSON.stringify(marks));
+        return { kOld, week: S.dateKey(S.mondayOf(now)), firstMonday: S.dateKey(S.mondayOf(S.addDays(now, -16))) };
+      });
+      await page.reload();
+      await page.click('#tab-chain');
+
+      const before = await facts();
+      assert.equal(before.first, seed.firstMonday,
+        'senaryo: pencere en eski işaretin haftasında başlamalı');
+      assert.ok(before.first < before.mondayNow, 'senaryo: en eski işaret bu haftadan eski olmalı');
+
+      // Gerçek kullanıcı tıklaması: en eski işaretli hücreye tıkla → işareti kalkar.
+      await page.click('.chain-cell[data-date="' + seed.kOld + '"]');
+
+      const after = await facts();
+      // Guard: tohum okuması ile son okuma arasında hafta değiştiyse
+      // (Pazar→Pazartesi gece yarısı) uygulama pencereyi meşru biçimde yeni
+      // haftaya kurar ve senaryonun haftalık beklemeleri geçersizleşir —
+      // sahte kırmızı yerine atla. Uçlar aynı haftadaysa aradaki her çizim
+      // (tıklama dahil) de o haftadadır; beklemeler geçerlidir.
+      if (after.mondayNow !== seed.week) {
+        t.skip('test Pazartesi gece yarısını aştı — hafta beklemesi geçersiz');
+        return;
+      }
+      assert.equal(after.n, 7, 'en eski işaret kalkınca ızgara anında küçülmedi: ' + after.n + ' hücre');
+      assert.equal(after.first, after.mondayNow, 'pencere kalan işaretin haftasına kaymadı');
+      assert.equal(
+        await page.evaluate((k) => !document.querySelector('.chain-cell[data-date="' + k + '"]'), seed.kOld),
+        true, 'çizim dışına düşen hücre DOM\'da kaldı');
+      assert.match(after.status, /işareti kaldırıldı/, 'durum satırı toggle sonucunu yansıtmıyor');
+      assert.equal(after.tabbable, 1, 'roving tabindex yeniden çizimde bozuldu: ' + after.tabbable);
     } finally {
       await page.close();
     }

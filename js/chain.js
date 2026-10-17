@@ -58,14 +58,12 @@
     els.todayBtn.textContent = isOn ? 'Bugünün işaretini kaldır' : 'Bugünü işaretle';
   }
 
-  function renderGrid() {
-    var now = new Date();
-    var todayKey = S.dateKey(now);
-    var todayMid = midnight(now);
-    // Zincir başlangıcı: en eski işaretli gün (dateKey sözel sıralanır).
-    // Izgara o günün pazartesinden başlar; 13 hafta penceresi geriye doğru
-    // tavan olmaya devam eder. Bozuk/gelecek anahtarlar yok sayılır. Hiç
-    // işaret yoksa zincir başlamamıştır → yalnız içinde bulunulan hafta.
+  // Pencere başlangıcı tek kaynakta türetilir: renderGrid ve toggleKey aynı
+  // sonucu görmeli ki en eski işaret kalktığında ızgara anında küçülsün.
+  // Zincir başlangıcı: en eski işaretli gün (dateKey sözel sıralanır); ızgara
+  // o günün pazartesinden başlar, 13 hafta penceresi geriye tavan olur.
+  // Bozuk/gelecek anahtarlar yok sayılır; işaret yoksa yalnız bu hafta.
+  function chainStart(now) {
     var mondayNow = S.mondayOf(now);
     var windowStart = S.addDays(mondayNow, -7 * (WEEKS - 1));
     var start = mondayNow;
@@ -79,6 +77,15 @@
       if (chainMonday.getTime() <= windowStart.getTime()) start = windowStart;
       else if (chainMonday.getTime() < mondayNow.getTime()) start = chainMonday;
     }
+    return start;
+  }
+
+  function renderGrid() {
+    var now = new Date();
+    var todayKey = S.dateKey(now);
+    var todayMid = midnight(now);
+    var mondayNow = S.mondayOf(now);
+    var start = chainStart(now);
     // 604800000 ms = 1 hafta: Pazartesiler yerel gece yarısında olduğundan
     // Math.round, DST kaynaklı ±1s kaymasını emniyetle yutar.
     var weeks = Math.round((mondayNow.getTime() - start.getTime()) / 604800000) + 1;
@@ -150,10 +157,25 @@
   function toggleKey(key) {
     var btn = cellFor(key);
     if (!btn || btn.disabled) return;
+    var startBefore = chainStart(new Date()).getTime();
     var on = S.toggleMark(marks, S.parseKey(key));
     persist();
-    refreshCell(key);
-    setActive(cellFor(key));
+    if (chainStart(new Date()).getTime() !== startBefore) {
+      // En eski işaret değişti → pencere kaydı: boşalan sütunlar sayfa
+      // yenilenmeden silinir. Tıklanan hücre çizim dışına düştüyse odak
+      // renderGrid hedefine (bugün → son hücre) devredilir; odaklanan
+      // öğe yeniden çizimde yok olduğu için focus() geri verilir.
+      renderGrid();
+      var fresh = cellFor(key) || els.grid.querySelector('.chain-cell.today') ||
+        els.grid.lastElementChild;
+      if (fresh) {
+        setActive(fresh);
+        fresh.focus();
+      }
+    } else {
+      refreshCell(key);
+      setActive(cellFor(key));
+    }
     renderStats();
     els.status.textContent = on
       ? fmtLong(S.parseKey(key)) + ' işaretlendi.'
