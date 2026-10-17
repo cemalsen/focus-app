@@ -2,8 +2,9 @@
 /* Zincir ızgarası gün numarası regresyonları (gerçek tarayıcı):
    1) geniş ekranda (1280px) her kutunun içinde ayın gün numarası çizilir,
       rengi soluk (ön plandan yarı saydam) ve hücre erişilebilir adı bozulmaz;
-   2) dar ekranda (375px) numaralar çizilmez (display:none), kutunun kendisi
-      ve işaretleme davranışı aynen çalışmaya devam eder;
+   2) dar ekranda (375px) numaralar çizilmeye devam eder (display:none
+      gizleme kararı 2026-10-17'de tamamen kaldırıldı);
+      kutunun kendisi ve işaretleme davranışı aynen çalışmaya devam eder;
    3) numara erişilebilir adı bozmaz: tarayıcının HESAPLADIĞI ad (ARIA yığını)
       hücrenin aria-label'ı ile birebir aynıdır — bugün / işaretli / gelecek
       (disabled) hücrelerde — ve .chain-day metni bu ada sızmaz;
@@ -20,7 +21,7 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { serveProject, launchBrowser } = require('./browser-harness.js');
 
-describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
+describe('zincir — kutu içindeki gün numarası (her kırılımda çizilir)', () => {
   let server;
   let baseUrl;
   let browser = null;
@@ -87,7 +88,7 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
     assert.notEqual(name, info.day, sel + ': erişilebilir ad gün numarasına inmiş: ' + name);
   };
 
-  it('1280px: numaralar soluk gri çizilir; 375px: gizli, işaretleme çalışır', { timeout: 60000 }, async (t) => {
+  it('1280px: numaralar soluk gri çizilir; 375px: numara çizilmeye devam eder, işaretleme çalışır', { timeout: 60000 }, async (t) => {
     if (!browser) {
       t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
         + (launchError ? launchError.message : 'bilinmeyen'));
@@ -140,11 +141,12 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
       await assertDecorativeName(page, '.chain-cell.today');
       await assertDecorativeName(page, '.chain-cell:disabled');
 
-      // Dar ekran: numara çizilmez, kutu kalır ve tıklanınca işaretlenir.
+      // Dar ekran: numara ÇİZİLİR (display:none gizleme kararı
+      // 2026-10-17'de tamamen kaldırıldı), kutu kalır ve tıklanınca işaretlenir.
       await page.setViewportSize({ width: 375, height: 812 });
       const narrowNum = await box(page, '.chain-cell.today .chain-day');
-      assert.equal(narrowNum.display, 'none', 'numara dar ekranda gizlenmedi');
-      assert.equal(narrowNum.w, 0, 'numara dar ekranda yer kaplıyor');
+      assert.notEqual(narrowNum.display, 'none', 'numara dar ekranda hâlâ gizli');
+      assert.ok(narrowNum.w > 0, 'numara dar ekranda çizilmiyor (w=0)');
       const cellBox = await box(page, '.chain-cell.today');
       assert.ok(cellBox.w >= 32, 'kutunun kendisi de kaybolmuş: ' + cellBox.w);
 
@@ -154,13 +156,16 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
       assert.equal(await page.$eval('.chain-cell.today', (el) => el.getAttribute('aria-pressed')), 'true');
       // İşaretlenen kutu: ad yine aria-label'dan gelir ("… — işaretli"), numara sızmaz.
       await assertDecorativeName(page, '.chain-cell.today.marked');
-      // Koyu kutuda numara yine de okunur olmalı (burada gizli olduğu için çizilmez).
-      assert.equal((await box(page, '.chain-cell.today.marked .chain-day')).display, 'none');
+      // Koyu (işaretli) kutuda numara dar ekranda da çizilir ve okunur kalır.
+      const markedNarrow = await box(page, '.chain-cell.today.marked .chain-day');
+      assert.notEqual(markedNarrow.display, 'none', 'işaretli kutuda numara dar ekranda gizli');
+      const nAlpha = alphaOf(markedNarrow.color);
+      assert.ok(nAlpha > 0 && nAlpha <= 1, 'işaretli kutu dar-ekran numara rengi anlaşılmadı: ' + markedNarrow.color);
 
-      // Geniş ekrana dönünce numaralar geri gelir; işaretli kutuda renk tersine döner.
+      // Geniş ekranda işaretli kutuda renk tersine döner (numara her kırılımda).
       await page.setViewportSize({ width: 1280, height: 800 });
       const markedNum = await box(page, '.chain-cell.today.marked .chain-day');
-      assert.ok(markedNum.w > 0, 'numara masaüstünde geri gelmedi');
+      assert.ok(markedNum.w > 0, 'numara masaüstünde çizilmedi');
       const mAlpha = alphaOf(markedNum.color);
       assert.ok(mAlpha > 0 && mAlpha <= 1, 'işaretli kutu numara rengi anlaşılmadı: ' + markedNum.color);
       assert.notEqual(markedNum.color, unmarked, 'işaretli kutuda numara rengi tersine dönmedi');

@@ -811,11 +811,9 @@ input[type="number"] { width: 6ch; }
   line-height: 1;
 }
 .chain-cell.marked .chain-day { color: color-mix(in oklab, var(--bg) 75%, transparent); }
-/* Dar ekran (mobil): numaralar çizilmez, ızgara eski kompakt görünümünde.
-   Base kuralı yukarıda; kaynak sırası gereği override media içinde. */
-@media (max-width: 48rem) {
-  .chain-day { display: none; }
-}
+/* Dar ekran (mobil) dahil her genişlikte numara çizilir: .chain-day base
+   kuralında display ayarı yok, .chain-cell grid olduğu için span grid-item
+   olarak bloklaşır — ayrıca bir media override'ı gerekmez. */
 /* Bugün imgesi iç kutu ile çizilir; böylece :focus-visible halkasıyla
    aynı özelliğe düşüp onun yerini almaz (ikisi birlikte görünür kalır). */
 .chain-cell.today { box-shadow: inset 0 0 0 2px var(--ring); }
