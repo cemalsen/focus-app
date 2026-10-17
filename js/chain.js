@@ -1,5 +1,8 @@
-/* Zinciri kırma aracı — son 13 haftanın ızgarası, gün işaretleme, seri hesabı.
-   Pomodoro'dan gelen `focus:pomodoro-completed` olayı bugünü otomatik işaretler. */
+/* Zinciri kırma aracı — en fazla son 13 haftanın ızgarası, gün işaretleme,
+   seri hesabı. Izgara zincirin ilk işaretli günüyle başladığı haftadan çizilir
+   (o haftadan önceki boş sütunlar gösterilmez); hiç işaret yoksa yalnız içinde
+   bulunulan hafta çizilir. Pomodoro'dan gelen `focus:pomodoro-completed`
+   olayı bugünü otomatik işaretler. */
 (function () {
   'use strict';
 
@@ -59,14 +62,33 @@
     var now = new Date();
     var todayKey = S.dateKey(now);
     var todayMid = midnight(now);
-    var start = S.addDays(S.mondayOf(now), -7 * (WEEKS - 1));
+    // Zincir başlangıcı: en eski işaretli gün (dateKey sözel sıralanır).
+    // Izgara o günün pazartesinden başlar; 13 hafta penceresi geriye doğru
+    // tavan olmaya devam eder. Bozuk/gelecek anahtarlar yok sayılır. Hiç
+    // işaret yoksa zincir başlamamıştır → yalnız içinde bulunulan hafta.
+    var mondayNow = S.mondayOf(now);
+    var windowStart = S.addDays(mondayNow, -7 * (WEEKS - 1));
+    var start = mondayNow;
+    var firstKey = null;
+    Object.keys(marks).forEach(function (key) {
+      if (marks[key] === true && /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+          (firstKey === null || key < firstKey)) firstKey = key;
+    });
+    if (firstKey) {
+      var chainMonday = S.mondayOf(S.parseKey(firstKey));
+      if (chainMonday.getTime() <= windowStart.getTime()) start = windowStart;
+      else if (chainMonday.getTime() < mondayNow.getTime()) start = chainMonday;
+    }
+    // 604800000 ms = 1 hafta: Pazartesiler yerel gece yarısında olduğundan
+    // Math.round, DST kaynaklı ±1s kaymasını emniyetle yutar.
+    var weeks = Math.round((mondayNow.getTime() - start.getTime()) / 604800000) + 1;
 
     els.grid.innerHTML = '';
     els.months.innerHTML = '';
 
     // Ay etiketleri: kolon (hafta) hizalı segmentler.
     var segments = [];
-    for (var w = 0; w < WEEKS; w++) {
+    for (var w = 0; w < weeks; w++) {
       var label = MONTHS[S.addDays(start, w * 7).getMonth()];
       var last = segments[segments.length - 1];
       if (last && last.label === label) last.span = w - last.startCol + 1;
@@ -80,7 +102,7 @@
     });
 
     var todayBtn = null;
-    for (var wi = 0; wi < WEEKS; wi++) {
+    for (var wi = 0; wi < weeks; wi++) {
       var weekStart = S.addDays(start, wi * 7);
       for (var r = 0; r < 7; r++) {
         var day = S.addDays(weekStart, r);

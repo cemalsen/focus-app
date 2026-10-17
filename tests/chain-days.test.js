@@ -6,7 +6,11 @@
       ve işaretleme davranışı aynen çalışmaya devam eder;
    3) numara erişilebilir adı bozmaz: tarayıcının HESAPLADIĞI ad (ARIA yığını)
       hücrenin aria-label'ı ile birebir aynıdır — bugün / işaretli / gelecek
-      (disabled) hücrelerde — ve .chain-day metni bu ada sızmaz.
+      (disabled) hücrelerde — ve .chain-day metni bu ada sızmaz;
+   4) ızgara penceresi zincirin en eski işaretiyle başladığı haftadan açılır
+      (öncesinde boş sütun/hücre çizilmez); işaret yoksa yalnız bu hafta,
+      zincir 13 haftadan eskiyse 13 hafta tavan; gelecek/bozuk anahtar
+      pencereyi bozmaz.
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -156,6 +160,83 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
       const mAlpha = alphaOf(markedNum.color);
       assert.ok(mAlpha > 0 && mAlpha <= 1, 'işaretli kutu numara rengi anlaşılmadı: ' + markedNum.color);
       assert.notEqual(markedNum.color, unmarked, 'işaretli kutuda numara rengi tersine dönmedi');
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('ızgara zincirin başladığı haftadan başlar; öncesinde hücre çizilmez', { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    // Izgaranın sözleşmesi: ilk işaretin pazartesiyle başlar, bugünün haftasının
+    // pazarıyla biter, tarihler kesintisiz ardışık günlerdir. (Hücre sayısı bu
+    // üçlüden türer — sayı formülü implementasyonun kendisi olmasın.)
+    const gridFacts = () => page.evaluate(() => {
+      const S = window.FocusStore;
+      const cells = Array.from(document.querySelectorAll('.chain-cell'));
+      const dates = cells.map((c) => c.dataset.date);
+      const gaps = [];
+      for (let i = 1; i < dates.length; i++) {
+        if (S.dateKey(S.addDays(S.parseKey(dates[i - 1]), 1)) !== dates[i]) gaps.push(dates[i - 1]);
+      }
+      return {
+        n: cells.length, first: dates[0], last: dates[dates.length - 1], gaps,
+        mondayNow: S.dateKey(S.mondayOf(new Date())),
+        sundayNow: S.dateKey(S.addDays(S.mondayOf(new Date()), 6)),
+        firstMonday: S.dateKey(S.mondayOf(S.addDays(new Date(), -16))),
+        windowMonday: S.dateKey(S.addDays(S.mondayOf(new Date()), -7 * 12))
+      };
+    });
+    const setMarks = (keys) => page.evaluate((ks) => {
+      const S = window.FocusStore;
+      const now = new Date();
+      const marks = {};
+      ks.forEach((off) => { marks[S.dateKey(S.addDays(now, off))] = true; });
+      localStorage.setItem('focus-app:chain', JSON.stringify(marks));
+    }, keys);
+    const reopen = async () => { await page.reload(); await page.click('#tab-chain'); };
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(baseUrl + '/index.html');
+
+      // 1) Hişaret yok → yalnız içinde bulunulan hafta.
+      await page.evaluate(() => localStorage.removeItem('focus-app:chain'));
+      await reopen();
+      const empty = await gridFacts();
+      assert.deepEqual(empty.gaps, [], 'boş ızgarada gün sırası bozuk');
+      assert.equal(empty.n, 7, 'boş zincirde yalnız bu hafta çizilmeli: ' + empty.n);
+      assert.equal(empty.first, empty.mondayNow, 'boş zincir bu haftanın Pazartesinden başlamıyor');
+      assert.equal(empty.last, empty.sundayNow, 'boş zincir bu haftanın Pazarında bitmiyor');
+
+      // 2) Zincir 16 gün önce başladı → ızgara o haftanın Pazartesinden başlar;
+      //    ondan önceki (boş) sütunlar çizilmez.
+      await setMarks([-16, 0]);
+      await reopen();
+      const seeded = await gridFacts();
+      assert.deepEqual(seeded.gaps, [], 'işaretli ızgarada gün sırası bozuk');
+      assert.equal(seeded.first, seeded.firstMonday,
+        'ızgara zincir başlangıcı haftasından başlamıyor: ' + seeded.first + ' ≠ ' + seeded.firstMonday);
+      assert.ok(seeded.first < seeded.mondayNow, 'test senaryosu iki haftadan eski olmalı');
+      assert.equal(seeded.last, seeded.sundayNow, 'ızgara bu haftanın Pazarında bitmiyor');
+
+      // 3) Zincir pencereden eski (300 gün) → 13 haftalık pencere tavan kalır.
+      await setMarks([-300, 0]);
+      await reopen();
+      const old = await gridFacts();
+      assert.deepEqual(old.gaps, [], 'eski zincirde gün sırası bozuk');
+      assert.equal(old.first, old.windowMonday, '13 hafta tavanı aşılmamalı: ' + old.first);
+      assert.equal(old.n, 13 * 7, 'tavan durumunda 13 hafta × 7 gün çizilmeli: ' + old.n);
+
+      // 4) Bozuk/gelecek anahtar ızgarayı geriye ya da geleceğe açmaz.
+      await page.evaluate(() => localStorage.setItem('focus-app:chain', JSON.stringify({ '2999-01-01': true })));
+      await reopen();
+      const junk = await gridFacts();
+      assert.equal(junk.n, 7, 'gelecek anahtarı ızgarayı bozdu: ' + junk.n);
+      assert.equal(junk.first, junk.mondayNow);
     } finally {
       await page.close();
     }
