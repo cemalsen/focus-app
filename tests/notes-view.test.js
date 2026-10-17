@@ -10,6 +10,8 @@
    7) dar ekranda X düğmesi H3 başlığıyla AYNI satırda dikey ortalanır ve
       .note-preview-wrap bloğunun üstüne binmez; X ile önizleme bloğunun
       üst/alt nefes boşlukları korunur.
+   8) not yokken görünen #note-empty, .notes-layout genişliğini doldurur —
+      içeriğine göre daralıp kısa blok OLMAZ (1280px ve 375px'te ölçülür).
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -241,6 +243,25 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
         'X önizleme bloğunun üstüne biniyor: X.bottom=' + r.x.bottom + ' önizleme.top=' + r.w.top);
       assert.ok(r.f.top - r.w.bottom >= 16,
         'önizleme bloğunun alt nefes boşluğu yok: boşluk=' + (r.f.top - r.w.bottom));
+    });
+  });
+
+  it('not yokken #note-empty .notes-layout genişliğini doldurur (kısa blok olmaz)', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await seedNotes(page, baseUrl, []); // boş kutu: editör gizli, boş durum görünür
+      assert.equal(await page.isVisible('#note-editor'), false, 'editör boş kutuda görünür');
+      assert.equal(await page.isVisible('#note-empty'), true, '#note-empty görünmüyor');
+      for (const width of [1280, 375]) {
+        await page.setViewportSize({ width, height: 800 });
+        const m = await page.evaluate(() => ({
+          e: document.querySelector('#note-empty').getBoundingClientRect().width,
+          l: document.querySelector('.notes-layout').getBoundingClientRect().width
+        }));
+        assert.ok(m.e > 40 && m.l > 100,
+          width + 'px: ölçüm sağlıksız — ölçülen kutulardan biri gizli: #note-empty=' + m.e + ' .notes-layout=' + m.l);
+        assert.ok(Math.abs(m.e - m.l) <= 1,
+          width + 'px: #note-empty içeriğe daraldı: genişlik=' + m.e + ' .notes-layout=' + m.l);
+      }
     });
   });
 });

@@ -420,6 +420,14 @@ input[type="number"] { width: 6ch; }
 @media (max-width: 48rem) {
   .notes-layout { grid-template-columns: minmax(0, 1fr); }
 }
+/* Boş kutu: editör `hidden` iken (seçili not yok) düzen tek sütuna iner —
+   #note-empty 16rem'lik liste sütununa kilitlenip kısa blok OLMAZ,
+   .notes-layout genişliğini doldurur. Editör görünür olur olmaz (not seçimi)
+   iki sütuna dönülür; dar ekranda zaten tek sütundur, kural etkisiz kalır. */
+.notes-layout:has(> .note-editor[hidden]) { grid-template-columns: minmax(0, 1fr); }
+/* İkinci kilit: p taban kuralındaki okuma ölçüsü `max-width: var(--measure)`
+   (65ch ≈ 573px) boş durum kutusunu kesiyordu; tam genişlik kutu için kalkar. */
+#note-empty { max-width: none; }
 
 .note-list {
   list-style: none;
