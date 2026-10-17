@@ -9,7 +9,9 @@
    4) süre ayarları artık dialog'un içinde ama işlevi aynı: Odak (dk) değişimi
       sayaç etiketini ve kalıcı state'i günceller, yenilemede yaşar;
    5) dialog Pomodoro sekmesi KAPALIYKEN de açılır (markup body seviyesinde —
-      panele taşınırsa `hidden` yüzünden erişilemez olur).
+      panele taşınırsa `hidden` yüzünden erişilemez olur);
+   6) faz seçici düğmeleri (.pomo-phase-btn) 375 ve 1280px'te ≥44×44px
+      dokunma alanını (--hit) doldurur ve 375px'te YATAY TAŞMA yapmaz.
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -257,6 +259,37 @@ describe('ayarlar — başlıktaki düğme ve süre ayarları pop-up\'ı', () =>
       'dar ekranda dijital saat sabit 5rem kalir (kuculmez)');
       assert.equal((await box(page, '#pomo-dial')).w, 240,
         'dar ekranda kadran sabit 15rem kalir (kuculmez)');
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('faz düğmeleri ≥44px dokunma sözleşmesini doldurur; 375px\'te yatay taşma yok', { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    try {
+      for (const width of [375, 1280]) {
+        await freshPage(page, width);
+        const m = await page.evaluate(() => {
+          const bs = [...document.querySelectorAll('.pomo-phase-btn')].map((b) => {
+            const r = b.getBoundingClientRect();
+            return { w: r.width, h: r.height, right: r.right };
+          });
+          const de = document.documentElement;
+          return { bs, overflow: de.scrollWidth - de.clientWidth, vw: de.clientWidth };
+        });
+        assert.equal(m.bs.length, 3, width + 'px: üç faz düğmesi beklenir');
+        m.bs.forEach((b, i) => {
+          assert.ok(b.h >= 44, width + 'px düğme ' + i + ': yükseklik ' + b.h + 'px — --hit 44px altında');
+          assert.ok(b.w >= 44, width + 'px düğme ' + i + ': genişlik ' + b.w + 'px — --hit 44px altında');
+          assert.ok(b.right <= m.vw + 1, width + 'px düğme ' + i + ': viewport dışına taşıyor (right=' + b.right + ' vw=' + m.vw + ')');
+        });
+        assert.ok(m.overflow <= 0, width + 'px: yatay taşma ' + m.overflow + 'px');
+      }
     } finally {
       await page.close();
     }

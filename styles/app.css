@@ -330,8 +330,10 @@ input[type="number"] { width: 6ch; }
 }
 .pomo-phase-btn {
   font-size: var(--text-xs);
-  min-height: 2rem;
-  padding: var(--space-1) var(--space-2);
+  /* Dokunma hedefi sözleşmesi: .btn tabanının --hit (44px) yüksekliği
+     korunur; satır içi dolgu genişletilir (tests/settings-dialog.test.js). */
+  min-height: var(--hit);
+  padding: var(--space-1) var(--space-3);
 }
 .pomo-phase-btn[aria-pressed="true"] {
   background: var(--fg);
