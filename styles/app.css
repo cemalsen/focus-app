@@ -754,6 +754,10 @@ input[type="number"] { width: 6ch; }
   color: var(--muted);
   display: grid;
   font-size: var(--text-xs);
+  /* Satır aralığı .chain-grid ile birebir aynı olmalı: etiket i×cell
+     hizasında, satır merkezi i×(cell+gap) hizasında kalırsa kayma satırdan
+     satıra birikir (Pazar'da 6×gap). */
+  gap: var(--space-1);
   grid-template-rows: repeat(7, var(--cell));
   width: var(--labels);
 }

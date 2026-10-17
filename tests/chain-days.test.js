@@ -12,6 +12,9 @@
       zincir 13 haftadan eskiyse 13 hafta tavan; gelecek/bozuk anahtar
       pencereyi bozmaz; en eski işaretin kaldırılması pencereyi anında
       küçültür (sayfa yenilenmeden).
+   5) gün adları (.chain-weekdays) ızgarayla AYNI satır aralığını paylaşır:
+      her etiket kendi satırının dikey merkezinde çizilir. Etiket sütununda
+      gap eksikse kayma satırdan satıra birikir (Pazar'da ~6×space-1).
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -311,6 +314,50 @@ describe('zincir — kutu içindeki gün numarası (dar ekranda gizli)', () => {
         true, 'çizim dışına düşen hücre DOM\'da kaldı');
       assert.match(after.status, /işareti kaldırıldı/, 'durum satırı toggle sonucunu yansıtmıyor');
       assert.equal(after.tabbable, 1, 'roving tabindex yeniden çizimde bozuldu: ' + after.tabbable);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('gün adları ızgara satırlarıyla aynı dikey merkezde hizalıdır', { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    try {
+      for (const vw of [1280, 375]) {
+        await page.setViewportSize({ width: vw, height: 800 });
+        await page.goto(baseUrl + '/index.html');
+        // Boş durum: yalnız bu hafta (7 hücre = 7 satırın tek sütunu), DOM
+        // sırası satır sırasıyla birebir aynı — haftalar arası kaymaya bağlı
+        // değil, salt geometri ölçülüyor.
+        await page.evaluate(() => localStorage.setItem('focus-app:chain', '{}'));
+        await page.reload();
+        await page.click('#tab-chain');
+        const rows = await page.evaluate(() => {
+          const mid = (el) => {
+            const r = el.getBoundingClientRect();
+            return r.top + r.height / 2;
+          };
+          const labels = Array.from(document.querySelectorAll('.chain-weekdays span'));
+          const cells = Array.from(document.querySelectorAll('.chain-grid .chain-cell'));
+          return {
+            n: cells.length,
+            labels: labels.length,
+            d: labels.map((s, i) => mid(s) - mid(cells[i]))
+          };
+        });
+        assert.equal(rows.n, 7, vw + 'px: tek haftalık zemin çizilmedi: ' + rows.n + ' hücre');
+        assert.equal(rows.labels, 7, vw + 'px: gün etiketi sayısı 7 değil: ' + rows.labels
+          + ' — etiket listesi boşken d boş kalır ve hizalama iddiası sessizce geçerdi');
+        rows.d.forEach((dy, i) => {
+          assert.ok(Math.abs(dy) <= 1.5,
+            vw + 'px: ' + (i + 1) + '. gün etiketi satır merkezinden ' + dy.toFixed(1)
+            + 'px kaydı — satırdan satıra biriken ofset (gap eksik?)');
+        });
+      }
     } finally {
       await page.close();
     }
