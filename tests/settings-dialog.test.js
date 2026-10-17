@@ -198,6 +198,8 @@ describe('ayarlar — başlıktaki düğme ve süre ayarları pop-up\'ı', () =>
       assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), false,
         'kadran gösterilmedi');
       assert.ok((await box(page, '#pomo-dial')).w > 0, 'kadran çizilmedi');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.bar')).display), 'none',
+        'kadran modunda alttaki ilerleme çubuğu (.bar) çizilmemeli');
       assert.equal(await page.evaluate(() =>
         document.getElementById('pomo-time').classList.contains('visually-hidden')), true,
         'kadran modunda dijital metin görünür kalmalı (yalnız görsel gizlenmeli)');
@@ -219,6 +221,42 @@ describe('ayarlar — başlıktaki düğme ve süre ayarları pop-up\'ı', () =>
       assert.equal(await page.evaluate(() => document.getElementById('pomo-dial').hasAttribute('hidden')), true,
         'dijitale dönüşte kadran kapanmadı');
       assert.ok((await box(page, '#pomo-time')).w > 0, 'dijital saate dönüş çizilmedi');
+      assert.notEqual(await page.evaluate(() => getComputedStyle(document.querySelector('.bar')).display), 'none',
+        'dijital moda dönüşte ilerleme çubuğu (.bar) yeniden görünür olmalı');
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('Saat boyutu: masaüstünde hafif büyür, dar ekranda küçülmez', { timeout: 60000 }, async (t) => {
+    if (!browser) {
+      t.skip('Tarayıcı yok — sistem Chrome ya da `npx playwright install chromium`: '
+        + (launchError ? launchError.message : 'bilinmeyen'));
+      return;
+    }
+    const page = await browser.newPage();
+    try {
+      await page.emulateMedia({ colorScheme: 'light' });
+      await freshPage(page, 1280);
+
+      // Masaüstü (1280px): dijital 5.5rem (88px) — eski 5rem'den hafif büyük.
+      assert.equal(await page.$eval('#pomo-time',
+        (el) => parseFloat(getComputedStyle(el).fontSize)), 88,
+      'masaüstü dijital saat 5.5rem olmalı');
+      // Kadran 18rem (288px) — eski 16rem'den hafif büyük.
+      await page.click('#settings-toggle');
+      await page.click('#pomo-display-dial');
+      assert.equal((await box(page, '#pomo-dial')).w, 288,
+        'masaüstü kadran 18rem olmalı');
+      await page.keyboard.press('Escape');
+
+      // Dar ekran (375px): saat CİDDİ küçülmez — dijital 5rem (80px), kadran 15rem (240px).
+      await page.setViewportSize({ width: 375, height: 812 });
+      assert.equal(await page.$eval('#pomo-time',
+        (el) => parseFloat(getComputedStyle(el).fontSize)), 80,
+      'dar ekranda dijital saat sabit 5rem kalir (kuculmez)');
+      assert.equal((await box(page, '#pomo-dial')).w, 240,
+        'dar ekranda kadran sabit 15rem kalir (kuculmez)');
     } finally {
       await page.close();
     }

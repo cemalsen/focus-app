@@ -348,9 +348,13 @@ input[type="number"] { width: 6ch; }
   text-transform: uppercase;
 }
 
+/* Saat boyutu sözleşmesi (2026-10): masaüstünde 5.5rem'e hafifçe büyüdü;
+   dar ekranda (12vw < 5rem olduğu ~667px altı) 5rem'e sabitlenir — saat
+   küçülmez, masaüstü boyutuna yakın kalır. 5ch mono genişliği 320px'te
+   panel payı (2×--space-6=48px) içinde sığar: 5rem·3em=240px ≤ 272px. */
 .pomo-time {
   font-family: var(--font-mono);
-  font-size: clamp(var(--text-3xl), 12vw, 5rem);
+  font-size: clamp(5rem, 12vw, 5.5rem);
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-normal);
   line-height: var(--leading-tight);
@@ -363,13 +367,21 @@ input[type="number"] { width: 6ch; }
    display:block kurar, onu ezmesi UA [hidden]{display:none} kuralını yeniden
    devreye sokar (nota formu tuzağı). Kollar CSS'le dönmez: js/pomodoro.js
    her render'da SVG transform="rotate(...)" yazar, CSS yalnız görünüm. */
+/* Kadran boyutu: masaüstünde 18rem'e büyüdü; dar ekranda (62vw < 15rem
+   olduğu ~387px altı) 15rem'e sabitlenir — kadran küçülmez, orijinal
+   ölçüsüne yakın kalır. */
 .pomo-dial {
   display: block;
   height: auto;
   margin: 0 auto;
-  width: min(16rem, 62vw);
+  width: clamp(15rem, 62vw, 18rem);
 }
 .pomo-dial[hidden] { display: none; }
+/* Kadran modu seçiliyken (.pomo-dial `hidden` TAŞIMAZ) alttaki ilerleme
+   çubuğu çizilmez: aynı bilgi halkada yaşar, dijital modda görünmeye devam
+   eder. Görünürlük kadranın hidden durumundan türer — js/pomodoro.js
+   renderDisplay()'in ters çevirdiği tek bayrak budur. */
+.pomo-dial:not([hidden]) ~ .bar { display: none; }
 .pomo-dial-face { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
 .pomo-dial-ring-base { fill: none; stroke: var(--border); stroke-width: 3; }
 .pomo-dial-ring {
