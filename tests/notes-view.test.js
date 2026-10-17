@@ -7,6 +7,9 @@
    5) sürükle-bırak sıralaması kalıcıdır (order alanına yazar, updatedAt'e dokunmaz),
    6) dar ekranda (≤48rem) ön izleme kapalı başlar; seçim paneli listenin üstünde
       açılır ve X kapatır; geniş ekranda davranış değişmez.
+   7) dar ekranda X düğmesi H3 başlığıyla AYNI satırda dikey ortalanır ve
+      .note-preview-wrap bloğunun üstüne binmez; X ile önizleme bloğunun
+      üst/alt nefes boşlukları korunur.
    Çalıştırma: node --test tests/ */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -215,6 +218,27 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
       await page.setViewportSize({ width: 1280, height: 800 });
       assert.equal(await page.isVisible('#note-editor'), true, 'masaüstünde panel görünmez oldu');
       assert.equal(await page.isVisible('#note-close'), false, 'X masaüstünde görünüyor');
+    });
+  });
+
+  it('dar ekranda X başlıkla hizalıdır, önizlemeye binmez; nefes boşlukları korunur', { timeout: 60000 }, async (t) => {
+    await withPage(t, async (page) => {
+      await page.setViewportSize({ width: 375, height: 720 });
+      await seedNotes(page, baseUrl, SEED);
+      await page.click('.note-item[data-id="n2"]'); // ön izleme açık
+      const r = await page.evaluate(() => {
+        const box = (s) => {
+          const b = document.querySelector(s).getBoundingClientRect();
+          return { top: b.top, bottom: b.bottom, cy: b.top + b.height / 2 };
+        };
+        return { x: box('#note-close'), h: box('.note-view-title'), w: box('#note-preview-wrap'), f: box('#note-editor > .row') };
+      });
+      assert.ok(Math.abs(r.x.cy - r.h.cy) <= 2.5,
+        'X, H3 başlığıyla aynı dikey merkezde değil: X.cy=' + r.x.cy + ' H3.cy=' + r.h.cy);
+      assert.ok(r.x.bottom + 8 <= r.w.top,
+        'X önizleme bloğunun üstüne biniyor: X.bottom=' + r.x.bottom + ' önizleme.top=' + r.w.top);
+      assert.ok(r.f.top - r.w.bottom >= 16,
+        'önizleme bloğunun alt nefes boşluğu yok: boşluk=' + (r.f.top - r.w.bottom));
     });
   });
 });

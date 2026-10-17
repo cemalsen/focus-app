@@ -475,12 +475,17 @@ input[type="number"] { width: 6ch; }
 }
 .note-close:hover { background: color-mix(in oklab, var(--fg) 6%, transparent); color: var(--fg); }
 /* Dar ekran (mobil): panel listenin ÜSTÜNDE açılır (order, grid yerleşim
-   sırasını değiştirir), X sağ üst köşede görünür; js/notes.js previewOpen. */
+   sırasını değiştirir), X görünür; js/notes.js previewOpen.
+   X AKIŞTADIR (grid satır 1, 2. sütun): absolute konumdayken 44px dokunma
+   alanı aşağı sarkıp .note-preview-wrap üstüne biniyordu. align-items:center
+   X merkezini H3 merkeziyle (başlık sarsa bile) birebir eşler; margin-block
+   X satırına ve önizleme bloğuna üst/alt nefes boşluğu verir. */
 @media (max-width: 48rem) {
-  .note-editor { order: -1; position: relative; }
-  .note-close { display: inline-flex; position: absolute; right: var(--space-2); top: var(--space-2); }
-  /* Başlık ve form girişi X düğmesinin altına girmesin. */
-  .note-view-title, .note-title { padding-inline-end: calc(var(--hit) + var(--space-2)); }
+  .note-editor { order: -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .note-close { display: inline-flex; grid-row: 1; grid-column: 2; margin-block: var(--space-2); }
+  .note-view-title { grid-row: 1; grid-column: 1; }
+  .note-editor > .note-form, .note-editor > .note-preview-wrap, .note-editor > .row { grid-column: 1 / -1; }
+  .note-preview-wrap { margin-block: var(--space-2); }
 }
 /* Görünüm modu başlığı: form açılınca gizlenir, düzenleme formundaki
    #note-title girişi onun yerini alır (aynı tipografi). */
