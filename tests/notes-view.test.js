@@ -231,10 +231,12 @@ describe('not görünümü — sıra sabitliği, elle sıralama, markdown', () =
           const b = document.querySelector(s).getBoundingClientRect();
           return { top: b.top, bottom: b.bottom, cy: b.top + b.height / 2 };
         };
-        return { x: box('#note-close'), h: box('.note-view-title'), w: box('#note-preview-wrap'), f: box('#note-editor > .row') };
+        return { x: box('#note-close'), h: box('.note-view-title'), w: box('#note-preview-wrap'), f: box('#note-editor > .row'), e: box('#note-editor') };
       });
       assert.ok(Math.abs(r.x.cy - r.h.cy) <= 2.5,
         'X, H3 başlığıyla aynı dikey merkezde değil: X.cy=' + r.x.cy + ' H3.cy=' + r.h.cy);
+      assert.ok(r.x.top - r.e.top >= 4,
+        'X satırının ÜST nefes boşluğu yok: X.top−panel.top=' + (r.x.top - r.e.top));
       assert.ok(r.x.bottom + 8 <= r.w.top,
         'X önizleme bloğunun üstüne biniyor: X.bottom=' + r.x.bottom + ' önizleme.top=' + r.w.top);
       assert.ok(r.f.top - r.w.bottom >= 16,
