@@ -90,7 +90,6 @@
     var frac = totalMs > 0 ? Math.max(0, Math.min(1, remainingMs / totalMs)) : 0;
 
     els.time.textContent = S.formatClock(secs);
-    els.phase.textContent = PHASE_LABEL[state.phase];
     // Moladayken de sıradaki odak numarası gösterilir (bir önceki odak değil).
     var cycleNo = state.focusInCycle + 1;
     els.cycle.textContent = 'Döngü ' + cycleNo + '/' + S.CYCLE_LEN;
@@ -295,7 +294,6 @@
 
   function init() {
     els = {
-      phase: document.getElementById('pomo-phase'),
       time: document.getElementById('pomo-time'),
       bar: document.getElementById('pomo-bar'),
       cycle: document.getElementById('pomo-cycle'),
