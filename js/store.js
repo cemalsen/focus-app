@@ -10,6 +10,7 @@
     todoLists: 'focus-app:todo-lists',
     todoActive: 'focus-app:todo-active',
     chain: 'focus-app:chain',
+    chainGoal: 'focus-app:chain-goal',
     pomodoro: 'focus-app:pomodoro',
     theme: 'focus-app:theme'
   };
@@ -104,6 +105,47 @@
     if (marks[k] === true) delete marks[k];
     else marks[k] = true;
     return marks[k] === true;
+  }
+
+  /* ── zincir hedefi: gün sayısı seçimi ──────────────────────
+     Kayıt: { goal: int|null, chosenOn: key|null, firstSeen: key|null }
+     goal null = hedef yok (varsayılan). chosenOn hedefin seçildiği gün.
+     firstSeen hedef arayüzünün ilk kez gösterildiği gün — seçici yalnız
+     hedef yokken VE ilk gününde açık durur; sonraki günlerde "Hedeflenen
+     günü seç" düğmesine dönüşür. Saf yardımcılar localStorage'a dokunmaz.
+     goalFromInput: ham girdiyi 1–3650 tamsayısına çevirir; geçersizse null. */
+  function goalFromInput(v) {
+    var n = Math.round(Number(v));
+    if (!isFinite(n) || n < 1 || n > 3650) return null;
+    return n;
+  }
+
+  function normalizeChainGoal(raw) {
+    var rec = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    return {
+      goal: goalFromInput(rec.goal),
+      chosenOn: typeof rec.chosenOn === 'string' ? rec.chosenOn : null,
+      firstSeen: typeof rec.firstSeen === 'string' ? rec.firstSeen : null
+    };
+  }
+
+  // Seçici açık mı? Yalnız hedef seçilmemişse ve ilk gösterim bugünküse.
+  function chainGoalOpen(rec, todayKey) {
+    return rec.goal === null && rec.firstSeen === todayKey;
+  }
+
+  // Izgara ufku: hedef günü = chosenOn + (goal − 1) — seçimin ilk günü
+  // 1. gün sayılır; hedef hiç kırılmazsa 30. günün bastığı gündür.
+  // chainGoalEndKey: hedef gününün haftasının son günü (Pazar) — ızgara
+  // hedef varken bugünden en çok bu güne kadar uzar. Hedef yok ya da
+  // chosenOn bozuksa null (pencere yalnız bu hafta). Hedef günü geçmişte
+  // kalsa bile Pazar döner; geçmişe uzatma kararı tüketiciyi ilgilendirir
+  // (chain.js bu haftanın ötesine geçen ufuk kullanır).
+  function chainGoalEndKey(rec) {
+    if (!rec || rec.goal === null || typeof rec.chosenOn !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(rec.chosenOn)) return null;
+    var target = addDays(parseKey(rec.chosenOn), rec.goal - 1);
+    return dateKey(addDays(mondayOf(target), 6));
   }
 
   /* ── pomodoro: faz mantığı ──────────────────────────────── */
@@ -369,6 +411,10 @@
     longestStreak: longestStreak,
     markedCount: markedCount,
     toggleMark: toggleMark,
+    goalFromInput: goalFromInput,
+    normalizeChainGoal: normalizeChainGoal,
+    chainGoalOpen: chainGoalOpen,
+    chainGoalEndKey: chainGoalEndKey,
     clampMinutes: clampMinutes,
     phaseMinutes: phaseMinutes,
     breakAfter: breakAfter,

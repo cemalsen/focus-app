@@ -353,6 +353,7 @@ describe('sözleşme sabitleri (KEYS / CYCLE_LEN)', () => {
       todoLists: 'focus-app:todo-lists',
       todoActive: 'focus-app:todo-active',
       chain: 'focus-app:chain',
+      chainGoal: 'focus-app:chain-goal',
       pomodoro: 'focus-app:pomodoro',
       theme: 'focus-app:theme'
     });
@@ -372,6 +373,68 @@ describe('sözleşme sabitleri (KEYS / CYCLE_LEN)', () => {
     assert.equal(r.lists.length, 1);
     assert.equal(r.lists[0].id, 'constructor');
     assert.equal(r.changed, false); // onarım olmadı, gereksiz kalıcı yazım yok
+  });
+});
+
+/* ── zincir hedefi: goalFromInput / normalizeChainGoal / chainGoalOpen ── */
+describe('zincir hedefi: gün sayısı seçimi yardımcıları', () => {
+  it('goalFromInput: geçerli gün sayısı aynen, metin ve ondalık yuvarlanarak döner', () => {
+    assert.equal(S.goalFromInput(7), 7);
+    assert.equal(S.goalFromInput('30'), 30);
+    assert.equal(S.goalFromInput('90'), 90);
+    assert.equal(S.goalFromInput('365'), 365);
+    assert.equal(S.goalFromInput(1), 1);
+    assert.equal(S.goalFromInput(3650), 3650);
+    assert.equal(S.goalFromInput('2.6'), 3, 'ondalık en yakına yuvarlanır');
+  });
+
+  it('goalFromInput: boş/sıfır/negatif/taşan/NaN girdiler null (hedef yok)', () => {
+    for (const bad of ['', '   ', 'abc', 0, -5, 0.2, 3651, NaN, null, undefined, {}]) {
+      assert.equal(S.goalFromInput(bad), null, `null bekleniyordu: ${String(bad)}`);
+    }
+  });
+
+  it('normalizeChainGoal: bozuk girdi üç alanlı boş kayda düşer, fazlalıklar atılır', () => {
+    for (const raw of [null, undefined, 42, 'x', [], { goal: 'abc' }]) {
+      assert.deepEqual(S.normalizeChainGoal(raw), { goal: null, chosenOn: null, firstSeen: null });
+    }
+    // Geçerli ama fazlalı alanlı kayıt: yalnız sözleşme alanları kalır.
+    assert.deepEqual(
+      S.normalizeChainGoal({ goal: 30, chosenOn: '2026-10-01', firstSeen: '2026-09-25', surplus: 1 }),
+      { goal: 30, chosenOn: '2026-10-01', firstSeen: '2026-09-25' }
+    );
+  });
+
+  it('normalizeChainGoal: alan tipleri temizlenir — goal sayıya çevrilir, tarihler yalnız metin', () => {
+    assert.deepEqual(
+      S.normalizeChainGoal({ goal: '45', chosenOn: 5, firstSeen: [] }),
+      { goal: 45, chosenOn: null, firstSeen: null }
+    );
+  });
+
+  it('chainGoalOpen: seçici yalnız hedef YOKKEN ve ilk gösterim BUGÜNSE açık', () => {
+    const today = '2026-10-17';
+    assert.equal(S.chainGoalOpen({ goal: null, chosenOn: null, firstSeen: today }, today), true);
+    assert.equal(S.chainGoalOpen({ goal: null, chosenOn: null, firstSeen: '2026-10-16' }, today), false, 'sonraki gün');
+    assert.equal(S.chainGoalOpen({ goal: 30, chosenOn: today, firstSeen: today }, today), false, 'hedef seçildi');
+    assert.equal(S.chainGoalOpen({ goal: null, chosenOn: null, firstSeen: null }, today), false, 'damgasız hiç açılmaz');
+  });
+
+  it('chainGoalEndKey: hedef günü = chosenOn + (goal−1); Pazar döner, bozukta null', () => {
+    assert.equal(S.chainGoalEndKey(null), null);
+    assert.equal(S.chainGoalEndKey({ goal: null, chosenOn: '2026-10-17' }), null);
+    assert.equal(S.chainGoalEndKey({ goal: 30, chosenOn: null }), null, 'chosenOn yok');
+    assert.equal(S.chainGoalEndKey({ goal: 30, chosenOn: '2026-10-17T12:00' }), null, 'biçim bozuk');
+    // Hedef günü haftanın ortasında: Pazar'a kadar uzar (Cmt→Pzt haftası).
+    assert.equal(S.chainGoalEndKey({ goal: 7, chosenOn: '2026-10-17' }), '2026-10-25',
+      'hedef 23 Ekim Cuma → hafta sonu 25 Ekim Pazar');
+    // Hedef günü zaten Pazar: taşma yok.
+    assert.equal(S.chainGoalEndKey({ goal: 7, chosenOn: '2026-10-19' }), '2026-10-25',
+      'hedef 25 Ekim Pazar → aynı hafta');
+    // 30 günlük hedef 17 Ekim'de seçilirse 15 Kasım Pazar'a isabet eder.
+    assert.equal(S.chainGoalEndKey({ goal: 30, chosenOn: '2026-10-17' }), '2026-11-15');
+    // Geçmiş hedef de Pazar döner; pencereyi geçmişe uzatma kararı tüketicinin.
+    assert.equal(S.chainGoalEndKey({ goal: 3, chosenOn: '2026-10-01' }), '2026-10-04');
   });
 });
 

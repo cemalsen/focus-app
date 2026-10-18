@@ -821,6 +821,33 @@ input[type="number"] { width: 6ch; }
 .chain-cell.today { box-shadow: inset 0 0 0 2px var(--ring); }
 .chain-cell:disabled { cursor: default; opacity: 0.35; }
 
+/* ── zincir hedefi ────────────────────────────────────────
+   "Hedeflenen günü seç" düğmesi ve açılır hedef seçici. Düğme ve
+   panel birbirinin yerine geçer (js/chain.js hidden çevirir); her iki
+   durumda da üstündeki blokla arası aynı nefes boşluğu kalsın. */
+.chain-goal-edit { margin: 0 0 var(--space-4); }
+.chain-goal-picker {
+  border: var(--border-hairline, 1px) solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  max-width: 28rem;
+  padding: var(--space-4);
+}
+/* display:flex, UA [hidden]{display:none} kuralını ezer — gizlemeyi geri ver
+   (.note-editor/.note-form tuzağının kopyası; picker `hidden` doğar). */
+.chain-goal-picker[hidden] { display: none; }
+.chain-goal-title { margin: 0; font-weight: var(--weight-medium); }
+.chain-goal-preset { min-width: var(--hit); text-align: center; }
+.chain-goal-preset[aria-pressed="true"] {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+.chain-goal-picker input[type="number"] { width: 8ch; }
+
 /* ── kayıt uyarısı ──────────────────────────────────────── */
 .save-warning {
   background: color-mix(in oklab, var(--fg) 8%, transparent);

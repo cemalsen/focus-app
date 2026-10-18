@@ -11,10 +11,19 @@
   var MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
   var marks = {};   // { "2026-10-01": true, … } — yalnızca işaretli günler
+  // Hedef kaydı: { goal:int|null, chosenOn:key|null, firstSeen:key|null }.
+  // goalOpenOverride: null = otomatik karar (S.chainGoalOpen), true/false =
+  // bu oturumda kullanıcının seçiciyi elle açma/kapatma tercihi.
+  var goal = { goal: null, chosenOn: null, firstSeen: null };
+  var goalOpenOverride = null;
   var els = {};
 
   function persist() {
     return window.FocusApp.persist(S.KEYS.chain, marks);
+  }
+
+  function persistGoal() {
+    return window.FocusApp.persist(S.KEYS.chainGoal, goal);
   }
 
   function midnight(d) {
@@ -86,9 +95,18 @@
     var todayMid = midnight(now);
     var mondayNow = S.mondayOf(now);
     var start = chainStart(now);
+    // Hedef ufku: hedef varsa ızgara yalnız bugünde değil, hedef gününün
+    // haftasının Pazarında da biter (geriye asla uzamaz — S.chainGoalEndKey
+    // hedef geçmişteyse bu haftanın gerisini verir, altdaki max korur).
+    var endMonday = mondayNow;
+    var goalEnd = S.chainGoalEndKey(goal);
+    if (goalEnd !== null) {
+      var goalMonday = S.mondayOf(S.parseKey(goalEnd));
+      if (goalMonday.getTime() > endMonday.getTime()) endMonday = goalMonday;
+    }
     // 604800000 ms = 1 hafta: Pazartesiler yerel gece yarısında olduğundan
     // Math.round, DST kaynaklı ±1s kaymasını emniyetle yutar.
-    var weeks = Math.round((mondayNow.getTime() - start.getTime()) / 604800000) + 1;
+    var weeks = Math.round((endMonday.getTime() - start.getTime()) / 604800000) + 1;
 
     els.grid.innerHTML = '';
     els.months.innerHTML = '';
@@ -223,6 +241,38 @@
     return false;
   }
 
+  /* ── hedef: panel görünürlüğü + seçim ─────────────────────
+     Kural: hedef seçilmemişse VE ilk gösterim bugündürse seçici açık
+     doğar (S.chainGoalOpen). Hedef seçilince ya da sonraki günlerde
+     kapanır; yerini "Hedeflenen günü seç" düğmesi alır. goalOpenOverride
+     bu oturumda düğme/Vazgeç ile verilen geçici tercihtir; kalıcı
+     duruma yazılmaz. */
+  function renderGoal() {
+    var open = goalOpenOverride === null
+      ? S.chainGoalOpen(goal, S.dateKey(new Date()))
+      : goalOpenOverride;
+    els.goalPicker.hidden = !open;
+    els.goalEdit.hidden = open;
+    els.goalClear.hidden = goal.goal === null;
+    els.goalValue.textContent = goal.goal === null ? 'yok' : goal.goal + ' gün';
+    var presets = els.goalPresets.querySelectorAll('.chain-goal-preset');
+    for (var i = 0; i < presets.length; i++) {
+      presets[i].setAttribute('aria-pressed',
+        String(Number(presets[i].dataset.days) === goal.goal));
+    }
+  }
+
+  function applyGoal(days) {
+    goal.goal = days;
+    goal.chosenOn = S.dateKey(new Date());
+    goalOpenOverride = false; // seçim sonrası panel kapanır, düğme geri gelir
+    persistGoal();
+    renderGrid(); // hedef ufku: ızgara hedef gününün haftasına uzar
+    renderGoal();
+    els.status.textContent = 'Hedef ' + days + ' gün olarak belirlendi.';
+    els.goalEdit.focus();
+  }
+
   function init() {
     els = {
       grid: document.getElementById('chain-grid'),
@@ -231,14 +281,31 @@
       best: document.getElementById('chain-best'),
       total: document.getElementById('chain-total'),
       status: document.getElementById('chain-status'),
-      todayBtn: document.getElementById('chain-today')
+      todayBtn: document.getElementById('chain-today'),
+      goalValue: document.getElementById('chain-goal-value'),
+      goalEdit: document.getElementById('chain-goal-edit'),
+      goalPicker: document.getElementById('chain-goal-picker'),
+      goalPresets: document.getElementById('chain-goal-presets'),
+      goalForm: document.getElementById('chain-goal-form'),
+      goalInput: document.getElementById('chain-goal-input'),
+      goalCancel: document.getElementById('chain-goal-cancel'),
+      goalClear: document.getElementById('chain-goal-clear')
     };
 
     var saved = S.load(S.KEYS.chain, {});
     marks = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
 
+    // İlk çalıştırma: ilk gösterim gününü damgala — zincirleme render'da
+    // null kalan firstSeen S.chainGoalOpen'ı hiç açılmaya zorlayamaz.
+    goal = S.normalizeChainGoal(S.load(S.KEYS.chainGoal, null));
+    if (goal.firstSeen === null) {
+      goal.firstSeen = S.dateKey(new Date());
+      persistGoal();
+    }
+
     renderGrid();
     renderStats();
+    renderGoal();
 
     // Gece yarısından sonra ızgara bayatlar: dakikada bir ve sekmeye
     // dönüldüğünde gün değiştiyse çizimi tazele.
@@ -249,6 +316,9 @@
         renderedTodayKey = nowKey;
         renderGrid();
         renderStats();
+        // Seçici yalnız ilk gösterim günü açık kalır; gece aşımında
+        // otomatik durum kapıya döner (elle açma tercihi korunur).
+        if (goalOpenOverride === null) renderGoal();
       }
     }
     setInterval(refreshIfDayChanged, 60000);
@@ -268,6 +338,42 @@
     });
     document.addEventListener('focus:pomodoro-completed', function () {
       markToday(true);
+    });
+
+    // ── hedef olayları ──────────────────────────────────────
+    els.goalEdit.addEventListener('click', function () {
+      goalOpenOverride = true;
+      renderGoal();
+      els.goalInput.focus();
+    });
+    els.goalCancel.addEventListener('click', function () {
+      goalOpenOverride = false;
+      renderGoal();
+      els.goalEdit.focus();
+    });
+    els.goalPresets.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.chain-goal-preset') : null;
+      if (btn && !btn.disabled) applyGoal(Number(btn.dataset.days));
+    });
+    els.goalForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var days = S.goalFromInput(els.goalInput.value);
+      if (days === null) {
+        els.status.textContent = 'Geçerli bir hedef gün sayısı gir (1–3650 arası).';
+        els.goalInput.focus();
+        return;
+      }
+      applyGoal(days);
+    });
+    els.goalClear.addEventListener('click', function () {
+      goal.goal = null;
+      goal.chosenOn = null;
+      goalOpenOverride = false;
+      persistGoal();
+      renderGrid(); // ufuk kaldırıldı: ızgara bu haftada küçülür
+      renderGoal();
+      els.status.textContent = 'Hedef kaldırıldı.';
+      els.goalEdit.focus();
     });
   }
 

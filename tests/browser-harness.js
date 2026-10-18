@@ -1,6 +1,7 @@
 'use strict';
 /* Playwright tarayıcı testleri için ortak iskele: statik sunucu + Chrome başlatma
-   + tohum notlar. Kullananlar: tests/chain-days.test.js, tests/footer.test.js,
+   + tohum notlar. Kullananlar: tests/chain-days.test.js, tests/chain-goal.test.js,
+   tests/footer.test.js,
    tests/notes-click.test.js, tests/notes-view.test.js, tests/settings-dialog.test.js,
    tests/shell-theme.test.js, tests/todos-lists.test.js, tests/todos-view.test.js */
 const http = require('node:http');
